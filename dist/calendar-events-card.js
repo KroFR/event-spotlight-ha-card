@@ -5,7 +5,7 @@
  * License: MIT
  */
  
-const CARD_VERSION = "1.0.1";
+const CARD_VERSION = "1.0.2";
 
 /* ---------------------------------------------------------------------- */
 /*  Main card                                                             */
@@ -146,10 +146,6 @@ class CalendarEventsCard extends HTMLElement {
 			.filter((item) => item?.entity?.startsWith("calendar."));
 	}
 
-	_calendarIds() {
-		return (this._config?.calendars || []).map((item) => item.entity);
-	}
-
 	_calendarSettingsKey() {
 		return (this._config?.calendars || []).map((item) => ({
 			entity: item.entity,
@@ -270,15 +266,16 @@ class CalendarEventsCard extends HTMLElement {
 	}
 
 	_resolveUiColor(color) {
-		if (!color || color === "primary") {
-			return "var(--primary-color)";
-		}
-
-		if (color === "accent") {
-			return "var(--accent-color)";
-		}
-
-		return `var(--${color}-color)`;
+		const value = String(color || "primary").trim().toLowerCase();
+		const allowed = new Set([
+			"primary", "accent", "red", "pink", "purple", "deep-purple",
+			"indigo", "blue", "light-blue", "cyan", "teal", "green",
+			"light-green", "lime", "yellow", "amber", "orange",
+			"deep-orange", "brown", "grey", "blue-grey",
+		]);
+		if (!allowed.has(value) || value === "primary") return "var(--primary-color)";
+		if (value === "accent") return "var(--accent-color)";
+		return `var(--${value}-color)`;
 	}
 
 	_updateIntervalMinutes() {
@@ -1010,17 +1007,6 @@ class CalendarEventsCardEditor extends HTMLElement {
 		filters: "mdi:filter-outline",
 	};
 
-	static BOOLEAN_FIELDS = new Set([
-		"show_title",
-		"show_title_icon",
-		"show_card_background",
-		"show_calendar",
-		"show_relative_date",
-		"show_time",
-		"show_description",
-		"show_location",
-	]);
-
 	static _getDeepActiveElement() {
 		let active = document.activeElement;
 		while (active?.shadowRoot?.activeElement)
@@ -1128,10 +1114,16 @@ class CalendarEventsCardEditor extends HTMLElement {
 
 	_filterIconColor(rule) {
 		if ((rule.action || "include") === "exclude") return "#64748b";
-		const color = String(rule.color || "").trim();
-		if (!color || color === "primary") return "var(--secondary-text-color)";
-		if (color === "accent") return "var(--accent-color)";
-		return `var(--${color}-color, var(--secondary-text-color))`;
+		const value = String(rule.color || "").trim().toLowerCase();
+		const allowed = new Set([
+			"accent", "red", "pink", "purple", "deep-purple", "indigo",
+			"blue", "light-blue", "cyan", "teal", "green", "light-green",
+			"lime", "yellow", "amber", "orange", "deep-orange", "brown",
+			"grey", "blue-grey",
+		]);
+		if (!allowed.has(value)) return "var(--secondary-text-color)";
+		if (value === "accent") return "var(--accent-color)";
+		return `var(--${value}-color, var(--secondary-text-color))`;
 	}
 
 	_filterRow(rule, index) {
