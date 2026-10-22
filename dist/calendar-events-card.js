@@ -5,7 +5,7 @@
  * License: MIT
  */
  
-const CARD_VERSION = "1.0.3";
+const CARD_VERSION = "1.0.4";
 
 /* ---------------------------------------------------------------------- */
 /*  Main card                                                             */
@@ -798,8 +798,15 @@ _baseStyles() {
 			padding: 6px 8px;
 			border-color: var(--divider-color);
 			border-radius: var(--ha-card-border-radius, 12px);
-			background: var(--ha-card-background, var(--card-background-color));
+			background: color-mix(
+				in srgb,
+				var(--event-color) var(--event-background-mix, 9%),
+				var(--event-background-base, var(--ha-card-background, var(--card-background-color)))
+			);
 			box-shadow: var(--ha-card-box-shadow, none);
+		}
+		.mushroom .event.no-card-background-color {
+			background: var(--event-background-base, var(--ha-card-background, var(--card-background-color)));
 		}
 		.mushroom .event-icon {
 			width: 36px;
