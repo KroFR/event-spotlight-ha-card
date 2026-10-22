@@ -5,7 +5,7 @@
  * License: MIT
  */
  
-const CARD_VERSION = "1.0.4";
+const CARD_VERSION = "1.0.5";
 
 /* ---------------------------------------------------------------------- */
 /*  Main card                                                             */
@@ -44,7 +44,7 @@ class CalendarEventsCard extends HTMLElement {
 		show_title: true,
 		show_title_icon: true,
 		show_card_background: true,
-		show_calendar: false,
+		show_calendar_source: false,
 		show_relative_date: true,
 		show_time: true,
 		show_description: false,
@@ -528,7 +528,7 @@ class CalendarEventsCard extends HTMLElement {
 						const extras = [
 							(this._config.show_description ?? CalendarEventsCard.FIELD_DEFAULTS.show_description) && event.description ? `<div class="event-detail">${this._escape(event.description)}</div>` : "",
 							(this._config.show_location ?? CalendarEventsCard.FIELD_DEFAULTS.show_location) && event.location ? `<div class="event-detail">${this._escape(event.location)}</div>` : "",
-							(this._config.show_calendar ?? CalendarEventsCard.FIELD_DEFAULTS.show_calendar) ? `<div class="event-detail">${this._escape(event.calendar_name)}</div>` : "",
+							(this._config.show_calendar_source ?? CalendarEventsCard.FIELD_DEFAULTS.show_calendar_source) ? `<div class="event-detail">${this._escape(event.calendar_name)}</div>` : "",
 						].filter(Boolean).join("");
 						return `<div class="bubble-event-line" style="--bubble-dot-color:${this._escape(dotColor)};--bubble-row-background:${this._escape(rowBackground)}">
 							<div class="bubble-main"><span class="bubble-dot"></span>${bubbleTime ? `<span class="bubble-time">${this._escape(bubbleTime)}</span>` : ""}<span class="event-title bubble-title">${this._escape(event.label)}${relativeDate ? ` <span class="bubble-relative">(${this._escape(relativeDate)})</span>` : ""}</span></div>
@@ -546,7 +546,7 @@ class CalendarEventsCard extends HTMLElement {
 							? `<div class="event-detail">${this._escape(event.description)}</div>` : "",
 						location: (this._config.show_location ?? CalendarEventsCard.FIELD_DEFAULTS.show_location) && event.location
 							? `<div class="event-detail">${this._escape(event.location)}</div>` : "",
-						calendar: (this._config.show_calendar ?? CalendarEventsCard.FIELD_DEFAULTS.show_calendar)
+						calendar: (this._config.show_calendar_source ?? CalendarEventsCard.FIELD_DEFAULTS.show_calendar_source)
 							? `<div class="event-detail">${this._escape(event.calendar_name)}</div>` : "",
 					};
 					const orderedDetails = this._displayOrder().map((key) => detailBlocks[key] || "").join("");
@@ -1102,7 +1102,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 			date_time: `<div class="appearance-switches">${this._switchRow("show_relative_date", "Show relative date")}${this._switchRow("show_time", "Show event time")}</div>`,
 			description: this._switchRow("show_description", "Show description"),
 			location: this._switchRow("show_location", "Show location"),
-			calendar: this._switchRow("show_calendar", "Show calendar name"),
+			calendar: this._switchRow("show_calendar_source", "Show calendar name"),
 		};
 		return this._displayOrder().map((key) => `<div class="appearance-order-row" draggable="true" data-display-key="${key}"><ha-icon class="drag-handle" icon="mdi:drag"></ha-icon><div class="appearance-order-content">${rows[key]}</div></div>`).join("");
 	}
