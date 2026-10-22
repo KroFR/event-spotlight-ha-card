@@ -661,8 +661,7 @@ _baseStyles() {
 			padding: 16px;
 		}
 		ha-card.no-card-background .card-content {
-			padding-right: 0;
-			padding-left: 0;
+			padding: 0;
 		}
 		.header {
 			display: flex;
