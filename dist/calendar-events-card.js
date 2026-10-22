@@ -5,7 +5,7 @@
  * License: MIT
  */
  
-const CARD_VERSION = "0.1.0";
+const CARD_VERSION = "1.0.1";
 
 /* ---------------------------------------------------------------------- */
 /*  Main card                                                             */
@@ -36,7 +36,6 @@ class CalendarEventsCard extends HTMLElement {
 
 	static FIELD_DEFAULTS = {
 		days: 30,
-		max_events: 8,
 		update_interval: 60,
 		all_day_hide_time: "23:59",
 		layout: "cards",
@@ -77,7 +76,6 @@ class CalendarEventsCard extends HTMLElement {
 					]
 				: [],
 			days: 30,
-			max_events: 4,
 		};
 	}
 
@@ -389,8 +387,7 @@ class CalendarEventsCard extends HTMLElement {
 			this._events = responses
 				.flat()
 				.filter((event) => this._passes(event))
-				.sort((a, b) => a.start_date - b.start_date)
-				.slice(0, Number(this._config.max_events ?? 8));
+				.sort((a, b) => a.start_date - b.start_date);
 			this._loadKey = JSON.stringify([this._calendarSettingsKey(), this._config.days, this._config.filters]);
 		} catch (error) {
 			console.error(
@@ -1129,6 +1126,14 @@ class CalendarEventsCardEditor extends HTMLElement {
 			.join("");
 	}
 
+	_filterIconColor(rule) {
+		if ((rule.action || "include") === "exclude") return "#64748b";
+		const color = String(rule.color || "").trim();
+		if (!color || color === "primary") return "var(--secondary-text-color)";
+		if (color === "accent") return "var(--accent-color)";
+		return `var(--${color}-color, var(--secondary-text-color))`;
+	}
+
 	_filterRow(rule, index) {
 		const action = rule.action || "include";
 		const field = rule.field || "summary";
@@ -1140,13 +1145,14 @@ class CalendarEventsCardEditor extends HTMLElement {
 		const title = this._escapeAttribute(rawLabel || rawValue || `Filter ${index + 1}`);
 		const rawIcon = rule.icon || (action === "exclude" ? "mdi:filter-remove-outline" : "");
 		const icon = rawIcon ? this._escapeAttribute(this._safeIcon(rawIcon, "")) : "";
+		const iconColor = this._escapeAttribute(this._filterIconColor(rule));
 		const actionLabel = action === "exclude" ? "Exclude" : "Include";
 
 		return `
 			<details class="filter-rule" data-filter-index="${index}">
 				<summary class="filter-rule-summary">
 					<span class="filter-rule-identity">
-						${icon ? `<ha-icon class="filter-rule-icon" icon="${icon}"></ha-icon>` : ""}
+						${icon ? `<ha-icon class="filter-rule-icon" icon="${icon}" style="color:${iconColor}"></ha-icon>` : ""}
 						<span class="filter-rule-title">${title}</span>
 					</span>
 					<span class="filter-rule-actions">
@@ -1602,14 +1608,10 @@ class CalendarEventsCardEditor extends HTMLElement {
 								<input data-config="days" type="number" min="1" max="365">
 							</label>
 							<label>
-								Maximum events
-								<input data-config="max_events" type="number" min="1" max="100">
+								Update interval (minutes)
+								<input data-config="update_interval" type="number" min="1" max="1440" step="1">
 							</label>
 						</div>
-						<label>
-							Update interval (minutes)
-							<input data-config="update_interval" type="number" min="1" max="1440" step="1">
-						</label>
 						${this._selector("all_day_hide_time", "All-day event hide time")}
 						${this._selector("language", "Card display language")}
 					</div>
@@ -1837,7 +1839,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 				this._config = { ...this._config, filters };
 				const row = form.closest("[data-filter-index]");
 				const desiredIcon = current.icon || ((current.action || "include") === "exclude" ? "mdi:filter-remove-outline" : "");
-				this._updateFilterTitleIcon(row, desiredIcon);
+				this._updateFilterTitleIcon(row, desiredIcon, this._filterIconColor(current));
 				this._setFilters(filters, false);
 			});
 		});
@@ -1941,11 +1943,15 @@ class CalendarEventsCardEditor extends HTMLElement {
 				badge.className = `filter-type filter-type-${isExclude ? "exclude" : "include"}`;
 			}
 			appearance?.classList.toggle("hidden", isExclude);
-			this._updateFilterTitleIcon(row, current.icon || (isExclude ? "mdi:filter-remove-outline" : ""));
+			this._updateFilterTitleIcon(
+				row,
+				current.icon || (isExclude ? "mdi:filter-remove-outline" : ""),
+				this._filterIconColor({ ...current, action: value }),
+			);
 		}
 	}
 
-	_updateFilterTitleIcon(row, iconValue) {
+	_updateFilterTitleIcon(row, iconValue, colorValue) {
 		const identity = row?.querySelector(".filter-rule-identity");
 		let icon = row?.querySelector(".filter-rule-icon");
 		const desiredIcon = iconValue ? this._safeIcon(iconValue, "") : "";
@@ -1959,6 +1965,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 			identity.prepend(icon);
 		}
 		icon?.setAttribute("icon", desiredIcon);
+		if (icon) icon.style.color = colorValue || "var(--secondary-text-color)";
 	}
 
 	_updateFilterElement(element, value, rerender) {
