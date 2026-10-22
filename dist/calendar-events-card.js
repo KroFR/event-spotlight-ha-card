@@ -5,7 +5,7 @@
  * License: MIT
  */
  
-const CARD_VERSION = "1.0.2";
+const CARD_VERSION = "1.0.3";
 
 /* ---------------------------------------------------------------------- */
 /*  Main card                                                             */
@@ -38,7 +38,7 @@ class CalendarEventsCard extends HTMLElement {
 		days: 30,
 		update_interval: 60,
 		all_day_hide_time: "23:59",
-		layout: "cards",
+		layout: "mushroom",
 		card_alignment: "left",
 		language: "auto",
 		show_title: true,
@@ -461,7 +461,7 @@ class CalendarEventsCard extends HTMLElement {
 
 		const lang = this._lang();
 		const configuredLayout = this._config.layout || CalendarEventsCard.FIELD_DEFAULTS.layout;
-		const layout = ["bubble", "chips", "square", "cards", "list", "pro"].includes(configuredLayout)
+		const layout = ["bubble", "chips", "list", "mushroom", "pro", "square"].includes(configuredLayout)
 			? configuredLayout
 			: CalendarEventsCard.FIELD_DEFAULTS.layout;
 		const configuredAlignment = this._config.card_alignment || CalendarEventsCard.FIELD_DEFAULTS.card_alignment;
@@ -778,25 +778,48 @@ _baseStyles() {
 		}
 
 		/* ------------------------------------------------------------------ */
-		/* Cards layout                                                        */
+		/* Mushroom layout                                                        */
 		/* ------------------------------------------------------------------ */
-		.cards {
+		.mushroom {
 			display: flex;
 			flex-wrap: wrap;
 			align-items: flex-start;
 			align-content: flex-start;
 		}
-		.cards .event {
+		.mushroom .event {
+			box-sizing: border-box;
 			flex: 0 1 auto;
 			width: auto;
 			max-width: 100%;
-			min-height: 0;
-			height: fit-content;
+			min-height: 54px;
+			height: 54px;
 			align-self: flex-start;
+			gap: 8px;
+			padding: 6px 8px;
 			border-color: var(--divider-color);
 			border-radius: var(--ha-card-border-radius, 12px);
 			background: var(--ha-card-background, var(--card-background-color));
 			box-shadow: var(--ha-card-box-shadow, none);
+		}
+		.mushroom .event-icon {
+			width: 36px;
+			height: 36px;
+		}
+		.mushroom .event-icon ha-icon {
+			--mdc-icon-size: 20px;
+		}
+		.mushroom .event-text {
+			display: grid;
+			gap: 1px;
+			line-height: 1.12;
+		}
+		.mushroom .event-title {
+			font-size: 0.88em;
+		}
+		.mushroom .event-date,
+		.mushroom .event-detail {
+			font-size: 0.72em;
+			line-height: 1.15;
 		}
 
 		/* ------------------------------------------------------------------ */
@@ -990,7 +1013,7 @@ _baseStyles() {
 		.error { color: var(--error-color, #f44336); }
 		@media (max-width: 400px) {
 			.square { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-			.cards .event { max-width: 100%; }
+			.mushroom .event { max-width: 100%; }
 		}
 	`;
 }
@@ -2046,9 +2069,9 @@ class CalendarEventsCardEditor extends HTMLElement {
 						mode: "dropdown",
 						options: [
 							{ value: "bubble", label: "Bubble" },
-							{ value: "cards", label: "Cards" },
 							{ value: "chips", label: "Chips" },
 							{ value: "list", label: "List" },
+							{ value: "mushroom", label: "Mushroom" },
 							{ value: "pro", label: "Pro" },
 							{ value: "square", label: "Square" },
 						],
