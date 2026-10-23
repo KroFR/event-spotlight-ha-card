@@ -140,7 +140,7 @@ Displays one event per full-width row.
 
 | Light Theme | Dark Theme |
 |---|---|
-| image | image |
+| <img width="470" height="528" alt="image" src="https://github.com/user-attachments/assets/9696ab29-6a84-4fc4-baee-90205db0523f" /> | <img width="472" height="531" alt="image" src="https://github.com/user-attachments/assets/59d25bba-1b08-411a-b2b8-8e99db1dd8e3" /> |
 
 ### Mushroom
 
