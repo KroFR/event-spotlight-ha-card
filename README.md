@@ -115,17 +115,13 @@ calendars:
 
 ## 🎨 Layouts
 
-### Mushroom
-
-The default compact layout. Each event is displayed as a small Mushroom-style card with an icon, title, and selected event details.
-
-```yaml
-layout: mushroom
-```
-
 ### Bubble
 
 Groups events by day. The date is displayed once for the day, with each event shown as a compact row underneath.
+
+| Light Theme | Dark Theme |
+|---|---|
+| <img width="471" height="340" alt="image" src="https://github.com/user-attachments/assets/f2033bed-e52b-428f-a202-e4975e5e2523" /> | <img width="474" height="339" alt="image" src="https://github.com/user-attachments/assets/11c9cc4a-585c-487f-85d7-736a8c892de5" /> |
 
 ```yaml
 layout: bubble
@@ -135,6 +131,10 @@ layout: bubble
 
 Displays events as compact pill-shaped chips. Useful when dashboard space is limited.
 
+| Light Theme | Dark Theme |
+|---|---|
+| <img width="472" height="163" alt="image" src="https://github.com/user-attachments/assets/70a0bd7a-d3e9-4bc2-b6b6-2b711939ef0d" /> | <img width="473" height="163" alt="image" src="https://github.com/user-attachments/assets/2bf1b6e1-d651-40f5-b29c-5b649f261cba" /> |
+
 ```yaml
 layout: chips
 ```
@@ -143,13 +143,33 @@ layout: chips
 
 Displays one event per full-width row.
 
+| Light Theme | Dark Theme |
+|---|---|
+| <img width="472" height="517" alt="image" src="https://github.com/user-attachments/assets/bdbbbdc9-a333-46a2-abf9-c5967733162f" /> | <img width="474" height="518" alt="image" src="https://github.com/user-attachments/assets/8c965ecb-2f12-4e5a-ab6e-e86fa54e571a" /> |
+
 ```yaml
 layout: list
+```
+
+### Mushroom
+
+The default compact layout. Each event is displayed as a small Mushroom-style card with an icon, title, and selected event details.
+
+| Light Theme | Dark Theme |
+|---|---|
+| <img width="472" height="213" alt="image" src="https://github.com/user-attachments/assets/2a4c00b1-42d9-4533-bb88-ee181dc88319" /> | <img width="474" height="216" alt="image" src="https://github.com/user-attachments/assets/a8ee08bd-5e59-46de-ab89-468003552477" /> |
+
+```yaml
+layout: mushroom
 ```
 
 ### Pro
 
 Displays a dedicated date column, a colored event marker, and event information in a compact full-width layout.
+
+| Light Theme | Dark Theme |
+|---|---|
+| <img width="473" height="471" alt="image" src="https://github.com/user-attachments/assets/5d949c37-e510-4546-b36d-f6880bfa2c71" /> | <img width="474" height="473" alt="image" src="https://github.com/user-attachments/assets/216b63b8-a0d1-46ce-b939-d5ab663e0cc8" /> |
 
 ```yaml
 layout: pro
@@ -158,6 +178,10 @@ layout: pro
 ### Square
 
 Displays events in responsive square tiles.
+
+| Light Theme | Dark Theme |
+|---|---|
+| <img width="472" height="419" alt="image" src="https://github.com/user-attachments/assets/0f25c360-4ede-4de3-ab39-0657617a809b" /> | <img width="476" height="419" alt="image" src="https://github.com/user-attachments/assets/e86daa05-4858-43ae-8fd2-d8dfe93ad8b2" /> |
 
 ```yaml
 layout: square
