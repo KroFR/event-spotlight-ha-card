@@ -10,11 +10,11 @@ A custom Lovelace card for [Home Assistant](https://www.home-assistant.io/) that
 
 Calendar Events Card supports multiple layouts, per-calendar display modes, include/exclude filters, custom labels, icons and colors, relative dates, event details, and a full visual editor.
 
+Whether you want to keep track of the next wast collection or never miss a family or friend’s birthday again, this card is made for you!
+
 | From default | To fully customized, no YAML |
 |---|---|
 | <img width="501" height="277" alt="image" src="https://github.com/user-attachments/assets/7cb87eeb-eacb-4850-b3ef-e3862255fa98" /> | <img width="502" height="276" alt="image" src="https://github.com/user-attachments/assets/65945f8b-fc4d-4822-89c2-6be025238d2c" /> |
-
-Whether you want to keep track of the next wast collection or never miss a family or friend’s birthday again, this card is made for you!
 
 ## ✨ Features
 
