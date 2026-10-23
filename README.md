@@ -209,22 +209,6 @@ calendars:
 
 This uses the default Mushroom layout, searches the next 30 days, and refreshes every 60 minutes.
 
-### Multiple calendars
-
-```yaml
-type: custom:calendar-events-card
-name: Upcoming events
-calendars:
-  - entity: calendar.family
-    event_mode: all
-  - entity: calendar.birthdays
-    event_mode: all
-  - entity: calendar.waste_collection
-    event_mode: filtered
-layout: mushroom
-days: 30
-```
-
 ### Waste collection filters
 
 Use a filtered calendar and customize each matching event with its own label, icon, and color.
@@ -281,36 +265,6 @@ filters:
     value: "birthday|anniversary"
     icon: mdi:cake-variant
     color: pink
-```
-
-### Transparent outer card
-
-Remove the main Home Assistant card surface while keeping the event layout itself.
-
-```yaml
-type: custom:calendar-events-card
-calendars:
-  - entity: calendar.family
-show_card_background: false
-show_title: false
-layout: mushroom
-```
-
-### Detailed list
-
-```yaml
-type: custom:calendar-events-card
-calendars:
-  - entity: calendar.family
-layout: list
-show_description: true
-show_location: true
-show_calendar_source: true
-display_order:
-  - date_time
-  - location
-  - description
-  - calendar
 ```
 
 ## 📅 All-day events
