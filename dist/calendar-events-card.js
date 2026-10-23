@@ -5,7 +5,7 @@
  * License: MIT
  */
  
-const CARD_VERSION = "1.0.6";
+const CARD_VERSION = "1.0.7";
 
 /* ---------------------------------------------------------------------- */
 /*  Main card                                                             */
@@ -525,17 +525,85 @@ class CalendarEventsCard extends HTMLElement {
 						const rowBackground = event.show_background_color
 							? `color-mix(in srgb, ${event.color} 9%, var(--ha-card-background, var(--card-background-color)))`
 							: "transparent";
-						const extras = [
-							(this._config.show_description ?? CalendarEventsCard.FIELD_DEFAULTS.show_description) && event.description ? `<div class="event-detail">${this._escape(event.description)}</div>` : "",
-							(this._config.show_location ?? CalendarEventsCard.FIELD_DEFAULTS.show_location) && event.location ? `<div class="event-detail">${this._escape(event.location)}</div>` : "",
-							(this._config.show_calendar_source ?? CalendarEventsCard.FIELD_DEFAULTS.show_calendar_source) ? `<div class="event-detail">${this._escape(event.calendar_name)}</div>` : "",
-						].filter(Boolean).join("");
+						const extraBlocks = {
+							description: (this._config.show_description ?? CalendarEventsCard.FIELD_DEFAULTS.show_description) && event.description
+								? `<div class="event-detail">${this._escape(event.description)}</div>` : "",
+							location: (this._config.show_location ?? CalendarEventsCard.FIELD_DEFAULTS.show_location) && event.location
+								? `<div class="event-detail">${this._escape(event.location)}</div>` : "",
+							calendar: (this._config.show_calendar_source ?? CalendarEventsCard.FIELD_DEFAULTS.show_calendar_source)
+								? `<div class="event-detail">${this._escape(event.calendar_name)}</div>` : "",
+						};
+						const extras = this._displayOrder()
+							.filter((key) => key !== "date_time")
+							.map((key) => extraBlocks[key] || "")
+							.join("");
 						return `<div class="bubble-event-line" style="--bubble-dot-color:${this._escape(dotColor)};--bubble-row-background:${this._escape(rowBackground)}">
 							<div class="bubble-main"><span class="bubble-dot"></span>${bubbleTime ? `<span class="bubble-time">${this._escape(bubbleTime)}</span>` : ""}<span class="event-title bubble-title">${this._escape(event.label)}${relativeDate ? ` <span class="bubble-relative">(${this._escape(relativeDate)})</span>` : ""}</span></div>
 							${extras ? `<div class="bubble-extra">${extras}</div>` : ""}
 						</div>`;
 					}).join("");
 					return `<div class="bubble-day-card"><div class="bubble-date"><div class="bubble-day-number">${this._escape(bubbleDay)}</div><div class="bubble-month">${this._escape(bubbleMonth)}</div></div><div class="bubble-body">${rows}</div></div>`;
+				}).join("");
+			} else if (layout === "pro") {
+				const groups = new Map();
+				visibleEvents.forEach((event) => {
+					const date = event.start_date;
+					const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+					if (!groups.has(key)) groups.set(key, []);
+					groups.get(key).push(event);
+				});
+
+				eventBlocks = [...groups.values()].map((dayEvents) => {
+					const first = dayEvents[0];
+					const dayName = new Intl.DateTimeFormat(lang, { weekday: "short" }).format(first.start_date);
+					const dayNumber = new Intl.DateTimeFormat(lang, { day: "2-digit" }).format(first.start_date);
+
+					const rows = dayEvents.map((event) => {
+						const showRelativeDate = this._config.show_relative_date ?? CalendarEventsCard.FIELD_DEFAULTS.show_relative_date;
+						const showTime = this._config.show_time ?? CalendarEventsCard.FIELD_DEFAULTS.show_time;
+						const showDescription = this._config.show_description ?? CalendarEventsCard.FIELD_DEFAULTS.show_description;
+						const showLocation = this._config.show_location ?? CalendarEventsCard.FIELD_DEFAULTS.show_location;
+						const showCalendarSource = this._config.show_calendar_source ?? CalendarEventsCard.FIELD_DEFAULTS.show_calendar_source;
+						let dateTime = showRelativeDate ? this._relativeDateLabel(event, lang) : "";
+						if (showTime) {
+							const isAllDay = /^\d{4}-\d{2}-\d{2}$/.test(event.start || "");
+							let timeLabel = this._t(lang, "all_day");
+							if (!isAllDay) {
+								const startTime = new Intl.DateTimeFormat(lang, { hour: "2-digit", minute: "2-digit" }).format(event.start_date);
+								const endDate = event.end ? this._date(event.end) : null;
+								const endTime = endDate && !Number.isNaN(endDate.getTime())
+									? new Intl.DateTimeFormat(lang, { hour: "2-digit", minute: "2-digit" }).format(endDate)
+									: "";
+								timeLabel = endTime ? `${startTime} – ${endTime}` : startTime;
+							}
+							dateTime += `${dateTime ? " · " : ""}${timeLabel}`;
+						}
+
+						const details = {
+							date_time: dateTime ? `<div class="pro-detail"><ha-icon icon="mdi:clock-outline"></ha-icon><span>${this._escape(dateTime)}</span></div>` : "",
+							description: showDescription && event.description ? `<div class="pro-detail"><ha-icon icon="mdi:text-box-outline"></ha-icon><span>${this._escape(event.description)}</span></div>` : "",
+							location: showLocation && event.location ? `<div class="pro-detail"><ha-icon icon="mdi:map-marker-outline"></ha-icon><span>${this._escape(event.location)}</span></div>` : "",
+							calendar: showCalendarSource ? `<div class="pro-detail"><ha-icon icon="mdi:calendar-outline"></ha-icon><span>${this._escape(event.calendar_name)}</span></div>` : "",
+						};
+						const orderedDetails = this._displayOrder().map((key) => details[key] || "").join("");
+						const eventClasses = [
+							"pro-event",
+							event.show_icon_background_color ? "" : "no-icon-background-color",
+							event.show_background_color ? "" : "no-card-background-color",
+						].filter(Boolean).join(" ");
+						const backgroundMix = event.show_background_color ? "9%" : "0%";
+
+						return `<div class="${eventClasses}" style="--event-color:${this._escape(event.color)};--event-background-mix:${backgroundMix}">
+							<div class="event-title pro-title"><span class="pro-icon"><ha-icon icon="${this._escape(event.icon)}"></ha-icon></span>${this._escape(event.label)}</div>
+							<div class="pro-details">${orderedDetails}</div>
+						</div>`;
+					}).join("");
+
+					return `<div class="pro-day-group">
+						<div class="pro-date"><div class="pro-day">${this._escape(dayName)}</div><div class="pro-day-number">${this._escape(dayNumber)}</div></div>
+						<div class="pro-accent"></div>
+						<div class="pro-events">${rows}</div>
+					</div>`;
 				}).join("");
 			} else {
 				eventBlocks = visibleEvents
@@ -563,37 +631,6 @@ class CalendarEventsCard extends HTMLElement {
 						? this._escape(event.color)
 						: "var(--divider-color)";
 
-					if (layout === "pro") {
-						const showRelativeDate = this._config.show_relative_date ?? CalendarEventsCard.FIELD_DEFAULTS.show_relative_date;
-						const showTime = this._config.show_time ?? CalendarEventsCard.FIELD_DEFAULTS.show_time;
-						let proDateTime = showRelativeDate ? this._relativeDateLabel(event, lang) : "";
-						if (showTime) {
-							const isAllDay = /^\d{4}-\d{2}-\d{2}$/.test(event.start || "");
-							const timeLabel = isAllDay
-								? this._t(lang, "all_day")
-								: new Intl.DateTimeFormat(lang, { hour: "2-digit", minute: "2-digit" }).format(event.start_date);
-							proDateTime += `${proDateTime ? " · " : ""}${timeLabel}`;
-						}
-						const proDetails = {
-							...detailBlocks,
-							date_time: proDateTime ? `<div class="event-date">${this._escape(proDateTime)}</div>` : "",
-						};
-						const proOrderedDetails = this._displayOrder().map((key) => proDetails[key] || "").join("");
-						const dayName = new Intl.DateTimeFormat(lang, { weekday: "short" }).format(event.start_date);
-						const dayNumber = new Intl.DateTimeFormat(lang, { day: "2-digit" }).format(event.start_date);
-						return `
-							<div class="pro-row ${eventClasses}" style="--event-color:${this._escape(event.color)};--event-background-mix:${backgroundMix};--event-background-base:${backgroundBase};--event-border-color:${borderColor}">
-								<div class="pro-date">
-									<div class="pro-day">${this._escape(dayName)}</div>
-									<div class="pro-day-number">${this._escape(dayNumber)}</div>
-								</div>
-								<div class="pro-accent"></div>
-								<div class="event-text pro-content">
-									<div class="event-title pro-title"><span class="pro-icon"><ha-icon icon="${this._escape(event.icon)}"></ha-icon></span>${this._escape(event.label)}</div>
-									${proOrderedDetails}
-								</div>
-							</div>`;
-					}
 					return `
 						<div class="${eventClasses}" style="--event-color:${this._escape(event.color)};--event-background-mix:${backgroundMix};--event-background-base:${backgroundBase};--event-border-color:${borderColor}">
 							<div class="event-icon">
@@ -636,386 +673,563 @@ class CalendarEventsCard extends HTMLElement {
 			</ha-card>`;
 	}
 
-_baseStyles() {
-	return `
-		/* ------------------------------------------------------------------ */
-		/* Card shell and header                                               */
-		/* ------------------------------------------------------------------ */
-		:host {
-			display: block;
-			width: 100%;
-		}
-		ha-card {
-			box-sizing: border-box;
-			width: 100%;
-			padding: 0;
-			overflow: hidden;
-		}
-		ha-card.no-card-background {
-			background: transparent;
-			border-color: transparent;
-			box-shadow: none;
-		}
-		.card-content {
-			padding: 16px;
-		}
-		ha-card.no-card-background .card-content {
-			padding: 0;
-		}
-		.header {
-			display: flex;
-			align-items: center;
-			gap: 10px;
-			margin-bottom: 16px;
-		}
-		.h-icon {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			width: 44px;
-			height: 44px;
-			flex-shrink: 0;
-			border: 1px solid var(--divider-color);
-			border-radius: 14px;
-			background: #f4f6f8;
-			box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-		}
-		.dark-mode .h-icon {
-			background: var(--secondary-background-color);
-			box-shadow:
-				0 2px 8px rgba(0, 0, 0, 0.5),
-				0 0 0 1px rgba(255, 255, 255, 0.06);
-		}
-		.h-icon ha-icon { color: #0288d1; }
-		.title {
-			font-size: 1.2em;
-			font-weight: 600;
-			color: var(--primary-text-color);
-		}
+	_baseStyles() {
+		return `
+			/* ------------------------------------------------------------------ */
+			/* Card shell and header                                               */
+			/* ------------------------------------------------------------------ */
+			:host {
+				display: block;
+				width: 100%;
+			}
+			ha-card {
+				box-sizing: border-box;
+				width: 100%;
+				padding: 0;
+				overflow: hidden;
+			}
+			ha-card.no-card-background {
+				background: transparent;
+				border-color: transparent;
+				box-shadow: none;
+			}
+			.card-content {
+				padding: 16px;
+			}
+			ha-card.no-card-background .card-content {
+				padding: 0;
+			}
+			.header {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				margin-bottom: 16px;
+			}
+			.h-icon {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				width: 44px;
+				height: 44px;
+				flex-shrink: 0;
+				border: 1px solid var(--divider-color);
+				border-radius: 14px;
+				background: #f4f6f8;
+				box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+			}
+			.dark-mode .h-icon {
+				background: var(--secondary-background-color);
+				box-shadow:
+					0 2px 8px rgba(0, 0, 0, 0.5),
+					0 0 0 1px rgba(255, 255, 255, 0.06);
+			}
+			.h-icon ha-icon {
+				color: #0288d1;
+			}
+			.title {
+				font-size: 1.2em;
+				font-weight: 600;
+				color: var(--primary-text-color);
+			}
 
-		/* ------------------------------------------------------------------ */
-		/* Shared event styles                                                 */
-		/* ------------------------------------------------------------------ */
-		.events { display: grid; gap: 8px; }
-		.event {
-			display: flex;
-			align-items: center;
-			gap: 10px;
-			min-width: 0;
-			padding: 10px;
-			border: 1px solid var(--divider-color);
-			border-radius: 12px;
-			background: color-mix(
-				in srgb,
-				var(--event-color) var(--event-background-mix, 9%),
-				var(--event-background-base, var(--ha-card-background, var(--card-background-color)))
-			);
-		}
-		.event-icon {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			width: 36px;
-			height: 36px;
-			flex-shrink: 0;
-			border-radius: 50%;
-			color: var(--event-color);
-			background: color-mix(in srgb, var(--event-color) 18%, transparent);
-		}
-		.event.no-icon-background-color .event-icon { background: transparent; }
-		.event-text { min-width: 0; }
-		.event-title {
-			overflow: hidden;
-			font-weight: 600;
-			white-space: nowrap;
-			text-overflow: ellipsis;
-			color: var(--primary-text-color);
-		}
-		.event-date,
-		.event-detail {
-			font-size: 0.78em;
-			color: var(--secondary-text-color);
-		}
-		.event-date { font-weight: 800; }
+			/* ------------------------------------------------------------------ */
+			/* Shared container alignment                                         */
+			/* ------------------------------------------------------------------ */
+			.events.align-left { justify-content: start; }
+			.events.align-center { justify-content: center; }
+			.events.align-right { justify-content: end; }
+			.events.align-justified { justify-content: space-between; width: 100%; }
 
-		/* ------------------------------------------------------------------ */
-		/* Card alignment                                                      */
-		/* ------------------------------------------------------------------ */
-		.events.align-left { justify-content: start; }
-		.events.align-center { justify-content: center; }
-		.events.align-right { justify-content: end; }
-		.events.align-justified { justify-content: space-between; width: 100%; }
+			/* ------------------------------------------------------------------ */
+			/* Bubble layout                                                       */
+			/* ------------------------------------------------------------------ */
+			.events.bubble {
+				display: grid;
+				grid-template-columns: minmax(0, 1fr);
+				width: 100%;
+				gap: 8px;
+			}
+			.bubble-day-card {
+				display: grid;
+				grid-template-columns: 48px minmax(0, 1fr);
+				align-items: start;
+				width: 100%;
+				gap: 10px;
+			}
+			.bubble-date {
+				display: grid;
+				justify-items: center;
+				align-content: start;
+				padding-top: 5px;
+				line-height: 1;
+			}
+			.bubble-day-number {
+				font-size: 1.45em;
+				font-weight: 700;
+				color: var(--primary-text-color);
+			}
+			.bubble-month {
+				margin-top: 1px;
+				font-size: 0.72em;
+				font-weight: 400;
+				text-transform: capitalize;
+				color: var(--secondary-text-color);
+			}
+			.bubble-body {
+				display: grid;
+				min-width: 0;
+				gap: 2px;
+			}
+			.bubble-event-line {
+				box-sizing: border-box;
+				width: 100%;
+				padding: 5px 7px;
+				border-radius: 7px;
+				background: var(--bubble-row-background, transparent);
+			}
+			.bubble-main {
+				display: flex;
+				align-items: center;
+				min-width: 0;
+				gap: 7px;
+			}
+			.bubble-dot {
+				width: 12px;
+				height: 12px;
+				flex: 0 0 12px;
+				border-radius: 50%;
+				background: var(--bubble-dot-color, var(--primary-color));
+			}
+			.bubble-time {
+				flex: 0 0 auto;
+				font-size: 14px;
+				font-weight: 500;
+				color: var(--secondary-text-color);
+			}
+			.bubble-title {
+				overflow: hidden;
+				min-width: 0;
+				font-size: 14px;
+				font-weight: 600;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+				color: var(--primary-text-color);
+			}
+			.bubble-relative {
+				font-size: 14px;
+				font-weight: 500;
+				color: var(--secondary-text-color);
+			}
+			.bubble-extra {
+				display: grid;
+				gap: 1px;
+				margin-left: 19px;
+			}
+			.bubble-extra .event-detail {
+				font-size: 12px;
+				font-weight: 400;
+				color: var(--secondary-text-color);
+			}
 
-		/* ------------------------------------------------------------------ */
-		/* Chips layout                                                        */
-		/* ------------------------------------------------------------------ */
-		.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-		.chips .event {
-			gap: 7px;
-			width: auto;
-			padding: 4px 10px 4px 6px;
-			border-radius: 999px;
-		}
-		.chips .event-icon { width: 28px; height: 28px; }
-		.chips .event-icon ha-icon { --mdc-icon-size: 18px; }
-		.chips .event-text { display: grid; gap: 0; line-height: 1.05; }
-		.chips .event-title { font-size: 0.78em; }
-		.chips .event-date,
-		.chips .event-detail { font-size: 0.68em; line-height: 1.1; }
+			/* ------------------------------------------------------------------ */
+			/* Chips layout                                                        */
+			/* ------------------------------------------------------------------ */
+			.events.chips {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 6px;
+			}
+			.chips .event {
+				display: flex;
+				align-items: center;
+				gap: 7px;
+				width: auto;
+				min-width: 0;
+				padding: 4px 10px 4px 6px;
+				border: 1px solid var(--divider-color);
+				border-radius: 999px;
+				background: color-mix(
+					in srgb,
+					var(--event-color) var(--event-background-mix, 9%),
+					var(--event-background-base, var(--ha-card-background, var(--card-background-color)))
+				);
+			}
+			.chips .event-icon {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				width: 28px;
+				height: 28px;
+				flex-shrink: 0;
+				border-radius: 50%;
+				color: var(--event-color);
+				background: color-mix(in srgb, var(--event-color) 18%, transparent);
+			}
+			.chips .event.no-icon-background-color .event-icon {
+				background: transparent;
+			}
+			.chips .event-icon ha-icon {
+				--mdc-icon-size: 18px;
+			}
+			.chips .event-text {
+				display: grid;
+				gap: 0;
+				min-width: 0;
+				line-height: 1.05;
+			}
+			.chips .event-title {
+				overflow: hidden;
+				font-size: 14px;
+				font-weight: 500;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+				color: var(--primary-text-color);
+			}
+			.chips .event-date,
+			.chips .event-detail {
+				font-size: 12px;
+				line-height: 1.1;
+				color: var(--secondary-text-color);
+			}
+			.chips .event-date {
+				font-weight: 500;
+			}
 
-		/* ------------------------------------------------------------------ */
-		/* Square layout                                                       */
-		/* ------------------------------------------------------------------ */
-		.events.square { width: 100%; }
-		.square { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
-		.square .event {
-			min-height: 100px;
-			flex-direction: column;
-			justify-content: center;
-			text-align: center;
-			border-color: var(--divider-color);
-		}
+			/* ------------------------------------------------------------------ */
+			/* List layout                                                         */
+			/* ------------------------------------------------------------------ */
+			.events.list {
+				display: grid;
+				grid-template-columns: 1fr;
+				align-items: start;
+				width: 100%;
+				gap: 8px;
+			}
+			.list .event {
+				display: flex;
+				align-items: center;
+				align-self: flex-start;
+				gap: 10px;
+				width: 100%;
+				min-width: 0;
+				min-height: 0;
+				height: fit-content;
+				padding: 10px;
+				border: 1px solid var(--divider-color);
+				border-radius: 12px;
+				background: color-mix(
+					in srgb,
+					var(--event-color) var(--event-background-mix, 9%),
+					var(--event-background-base, var(--ha-card-background, var(--card-background-color)))
+				);
+			}
+			.list .event-icon {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				width: 36px;
+				height: 36px;
+				flex-shrink: 0;
+				border-radius: 50%;
+				color: var(--event-color);
+				background: color-mix(in srgb, var(--event-color) 18%, transparent);
+			}
+			.list .event.no-icon-background-color .event-icon {
+				background: transparent;
+			}
+			.list .event-text {
+				min-width: 0;
+			}
+			.list .event-title {
+				overflow: hidden;
+				font-size: 14px;
+				font-weight: 600;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+				color: var(--primary-text-color);
+			}
+			.list .event-date,
+			.list .event-detail {
+				font-size: 12px;
+				color: var(--secondary-text-color);
+			}
+			.list .event-date {
+				font-weight: 600;
+			}
 
-		/* ------------------------------------------------------------------ */
-		/* Mushroom layout                                                        */
-		/* ------------------------------------------------------------------ */
-		.mushroom {
-			display: flex;
-			flex-wrap: wrap;
-			align-items: flex-start;
-			align-content: flex-start;
-		}
-		.mushroom .event {
-			box-sizing: border-box;
-			flex: 0 1 auto;
-			width: auto;
-			max-width: 100%;
-			min-height: 54px;
-			height: 54px;
-			align-self: flex-start;
-			gap: 8px;
-			padding: 6px 8px;
-			border-color: var(--divider-color);
-			border-radius: var(--ha-card-border-radius, 12px);
-			background: color-mix(
-				in srgb,
-				var(--event-color) var(--event-background-mix, 9%),
-				var(--event-background-base, var(--ha-card-background, var(--card-background-color)))
-			);
-			box-shadow: var(--ha-card-box-shadow, none);
-		}
-		.mushroom .event-icon {
-			width: 36px;
-			height: 36px;
-		}
-		.mushroom .event-icon ha-icon {
-			--mdc-icon-size: 20px;
-		}
-		.mushroom .event-text {
-			display: grid;
-			gap: 1px;
-			line-height: 1.12;
-		}
-		.mushroom .event-title {
-			font-size: 0.88em;
-		}
-		.mushroom .event-date,
-		.mushroom .event-detail {
-			font-size: 0.72em;
-			line-height: 1.15;
-		}
+			/* ------------------------------------------------------------------ */
+			/* Mushroom layout                                                     */
+			/* ------------------------------------------------------------------ */
+			.events.mushroom {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: flex-start;
+				align-content: flex-start;
+				gap: 8px;
+			}
+			.mushroom .event {
+				display: flex;
+				box-sizing: border-box;
+				align-items: center;
+				align-self: flex-start;
+				flex: 0 1 auto;
+				gap: 8px;
+				width: auto;
+				max-width: 100%;
+				min-width: 0;
+				min-height: 54px;
+				height: auto;
+				padding: 6px 8px;
+				border: 1px solid var(--divider-color);
+				border-radius: var(--ha-card-border-radius, 12px);
+				background: color-mix(
+					in srgb,
+					var(--event-color) var(--event-background-mix, 9%),
+					var(--event-background-base, var(--ha-card-background, var(--card-background-color)))
+				);
+				box-shadow: var(--ha-card-box-shadow, none);
+			}
+			.mushroom .event-icon {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				width: 36px;
+				height: 36px;
+				flex-shrink: 0;
+				border-radius: 50%;
+				color: var(--event-color);
+				background: color-mix(in srgb, var(--event-color) 18%, transparent);
+			}
+			.mushroom .event.no-icon-background-color .event-icon {
+				background: transparent;
+			}
+			.mushroom .event-icon ha-icon {
+				--mdc-icon-size: 20px;
+			}
+			.mushroom .event-text {
+				display: grid;
+				gap: 1px;
+				min-width: 0;
+				line-height: 1.12;
+			}
+			.mushroom .event-title {
+				overflow: hidden;
+				font-size: 14px;
+				font-weight: 600;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+				color: var(--primary-text-color);
+			}
+			.mushroom .event-date,
+			.mushroom .event-detail {
+				font-size: 12px;
+				line-height: 1.15;
+				color: var(--secondary-text-color);
+			}
+			.mushroom .event-date {
+				font-weight: 800;
+			}
 
-		/* ------------------------------------------------------------------ */
-		/* List layout                                                         */
-		/* ------------------------------------------------------------------ */
-		.events.list { width: 100%; }
-		.list { grid-template-columns: 1fr; align-items: start; }
-		.list .event {
-			min-height: 0;
-			height: fit-content;
-			align-self: flex-start;
-			border-color: var(--divider-color);
-		}
+			/* ------------------------------------------------------------------ */
+			/* Pro layout                                                          */
+			/* ------------------------------------------------------------------ */
+			.events.pro {
+				display: grid;
+				grid-template-columns: minmax(0, 1fr);
+				width: 100%;
+				gap: 0px;
+			}
+			.pro-day-group {
+				display: grid;
+				box-sizing: border-box;
+				grid-template-columns: 48px 3px minmax(0, 1fr);
+				align-items: stretch;
+				width: 100%;
+				gap: 10px;
+				padding: 4px 8px;
+			}
+			.pro-date {
+				display: grid;
+				align-content: center;
+				justify-items: center;
+				line-height: 1;
+			}
+			.pro-day {
+				font-size: 0.72em;
+				font-weight: 500;
+				text-transform: capitalize;
+				color: var(--secondary-text-color);
+			}
+			.pro-day-number {
+				margin-top: 2px;
+				font-size: 1.45em;
+				font-weight: 700;
+				color: var(--primary-text-color);
+			}
+			.pro-accent {
+				width: 3px;
+				height: 100%;
+				min-height: 42px;
+				border-radius: 999px;
+				background: var(--primary-color);
+			}
+			.pro-events {
+				display: grid;
+				min-width: 0;
+				gap: 0;
+			}
+			.pro-event {
+				min-width: 0;
+				padding: 5px 7px;
+				border-radius: 0;
+				background: color-mix(
+					in srgb,
+					var(--event-color) var(--event-background-mix, 9%),
+					var(--ha-card-background, var(--card-background-color))
+				);
+			}
+			.pro-event.no-card-background-color {
+				padding-right: 0;
+				padding-left: 0;
+				border-radius: 0;
+				background: transparent;
+			}
+			.pro-title {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				overflow: hidden;
+				font-size: 14px;
+				font-weight: 600;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+				color: var(--primary-text-color);
+			}
+			.pro-icon {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 24px;
+				height: 24px;
+				flex-shrink: 0;
+				border-radius: 50%;
+				background: color-mix(in srgb, var(--event-color) 18%, transparent);
+			}
+			.pro-event.no-icon-background-color .pro-icon {
+				background: transparent;
+			}
+			.pro-title ha-icon {
+				--mdc-icon-size: 16px;
+				color: var(--event-color);
+			}
+			.pro-details {
+				display: grid;
+				gap: 2px;
+				margin-top: 2px;
+			}
+			.pro-detail {
+				display: grid;
+				grid-template-columns: 18px minmax(0, 1fr);
+				align-items: start;
+				gap: 4px;
+				font-size: 12px;
+				font-weight: 400;
+				color: var(--secondary-text-color);
+			}
+			.pro-detail ha-icon {
+				--mdc-icon-size: 15px;
+				color: currentColor;
+			}
+			.pro-detail span {
+				min-width: 0;
+				overflow-wrap: anywhere;
+			}
 
-		/* ------------------------------------------------------------------ */
-		/* Bubble layout                                                       */
-		/* ------------------------------------------------------------------ */
-		.events.bubble {
-			display: grid;
-			grid-template-columns: minmax(0, 1fr);
-			width: 100%;
-			gap: 8px;
-		}
-		.bubble-day-card {
-			display: grid;
-			grid-template-columns: 48px minmax(0, 1fr);
-			width: 100%;
-			gap: 10px;
-			align-items: start;
-		}
-		.bubble-date {
-			display: grid;
-			justify-items: center;
-			align-content: start;
-			line-height: 1;
-			padding-top: 5px;
-		}
-		.bubble-day-number {
-			font-size: 1.45em;
-			font-weight: 700;
-			color: var(--primary-text-color);
-		}
-		.bubble-month {
-			margin-top: 1px;
-			font-size: 0.72em;
-			text-transform: capitalize;
-			color: var(--secondary-text-color);
-		}
-		.bubble-body {
-			display: grid;
-			min-width: 0;
-			gap: 2px;
-		}
-		.bubble-event-line {
-			box-sizing: border-box;
-			width: 100%;
-			padding: 5px 7px;
-			border-radius: 7px;
-			background: var(--bubble-row-background, transparent);
-		}
-		.bubble-main {
-			display: flex;
-			align-items: center;
-			min-width: 0;
-			gap: 7px;
-		}
-		.bubble-dot {
-			width: 12px;
-			height: 12px;
-			flex: 0 0 12px;
-			border-radius: 50%;
-			background: var(--bubble-dot-color, var(--primary-color));
-		}
-		.bubble-time {
-			flex: 0 0 auto;
-			font-size: 0.78em;
-			font-weight: 500;
-			color: var(--secondary-text-color);
-		}
-		.bubble-title {
-			min-width: 0;
-			font-size: 0.82em;
-		}
-		.bubble-relative {
-			font-weight: 400;
-			color: var(--secondary-text-color);
-		}
-		.bubble-extra {
-			display: grid;
-			gap: 1px;
-			margin-left: 19px;
-		}
-		.bubble-extra .event-detail { font-size: 0.7em; }
-		/* ------------------------------------------------------------------ */
-		/* Pro layout                                                          */
-		/* ------------------------------------------------------------------ */
-		.events.pro {
-			display: grid;
-			grid-template-columns: minmax(0, 1fr);
-			width: 100%;
-			gap: 0;
-			justify-content: stretch;
-		}
-		.pro .pro-row {
-			display: grid;
-			grid-template-columns: 48px 3px minmax(0, 1fr);
-			align-items: center;
-			gap: 10px;
-			min-height: 54px;
-			padding: 4px 8px;
-			border: 0;
-			border-radius: 0px;
-			background: color-mix(
-				in srgb,
-				var(--event-color) var(--event-background-mix, 9%),
-				var(--event-background-base, var(--ha-card-background, var(--card-background-color)))
-			);
-		}
-		.pro-date {
-			display: grid;
-			align-content: center;
-			justify-items: center;
-			line-height: 1;
-		}
-		.pro-day {
-			font-size: 0.72em;
-			font-weight: 500;
-			text-transform: capitalize;
-			color: var(--secondary-text-color);
-		}
-		.pro-day-number {
-			margin-top: 2px;
-			font-size: 1.45em;
-			font-weight: 700;
-			color: var(--primary-text-color);
-		}
-		.pro-accent {
-			width: 3px;
-			height: 100%;
-			min-height: 42px;
-			border-radius: 999px;
-			background: var(--event-color);
-		}
-		.pro-content {
-			display: grid;
-			gap: 2px;
-			min-width: 0;
-		}
-		.pro-title {
-			display: flex;
-			align-items: center;
-			gap: 5px;
-		}
-		.pro-icon {
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			width: 26px;
-			height: 26px;
-			flex-shrink: 0;
-			border-radius: 50%;
-			background: color-mix(in srgb, var(--event-color) 18%, transparent);
-		}
-		.pro .no-icon-background-color .pro-icon {
-			background: transparent;
-		}
-		.pro-title ha-icon {
-			--mdc-icon-size: 17px;
-			color: var(--event-color);
-		}
-		.pro .event-date,
-		.pro .event-detail {
-			font-size: 0.72em;
-		}
+			/* ------------------------------------------------------------------ */
+			/* Square layout                                                       */
+			/* ------------------------------------------------------------------ */
+			.events.square {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+				width: 100%;
+				gap: 8px;
+			}
+			.square .event {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				flex-direction: column;
+				gap: 10px;
+				min-width: 0;
+				min-height: 100px;
+				padding: 10px;
+				border: 1px solid var(--divider-color);
+				border-radius: 12px;
+				text-align: center;
+				background: color-mix(
+					in srgb,
+					var(--event-color) var(--event-background-mix, 9%),
+					var(--event-background-base, var(--ha-card-background, var(--card-background-color)))
+				);
+			}
+			.square .event-icon {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				width: 36px;
+				height: 36px;
+				flex-shrink: 0;
+				border-radius: 50%;
+				color: var(--event-color);
+				background: color-mix(in srgb, var(--event-color) 18%, transparent);
+			}
+			.square .event.no-icon-background-color .event-icon {
+				background: transparent;
+			}
+			.square .event-text {
+				min-width: 0;
+			}
+			.square .event-title {
+				overflow: hidden;
+				font-size: 14px;
+				font-weight: 600;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+				color: var(--primary-text-color);
+			}
+			.square .event-date,
+			.square .event-detail {
+				font-size: 12px;
+				color: var(--secondary-text-color);
+			}
+			.square .event-date {
+				font-weight: 600;
+			}
 
-		/* ------------------------------------------------------------------ */
-		/* States and responsive adjustments                                  */
-		/* ------------------------------------------------------------------ */
-		.state {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			gap: 8px;
-			min-height: 64px;
-			color: var(--secondary-text-color);
-		}
-		.error { color: var(--error-color, #f44336); }
-		@media (max-width: 400px) {
-			.square { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-			.mushroom .event { max-width: 100%; }
-		}
-	`;
-}
+			/* ------------------------------------------------------------------ */
+			/* Empty, loading, error, and responsive states                        */
+			/* ------------------------------------------------------------------ */
+			.state {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 8px;
+				min-height: 64px;
+				color: var(--secondary-text-color);
+			}
+			.error {
+				color: var(--error-color, #f44336);
+			}
+			@media (max-width: 400px) {
+				.events.square {
+					grid-template-columns: repeat(2, minmax(0, 1fr));
+				}
+				.mushroom .event {
+					max-width: 100%;
+				}
+			}
+		`;
+	}
 }
 /* ---------------------------------------------------------------------- */
 /*  Visual editor                                                         */
@@ -1039,6 +1253,12 @@ class CalendarEventsCardEditor extends HTMLElement {
 		super();
 		this._rendered = false;
 		this._filterInputTimer = null;
+		this._sectionState = {
+			calendars: false,
+			general: false,
+			appearance: false,
+			filters: false,
+		};
 	}
 
 	setConfig(config) {
@@ -1090,13 +1310,20 @@ class CalendarEventsCardEditor extends HTMLElement {
 	}
 
 	_appearanceRows() {
+		const isBubble = (this._config.layout || CalendarEventsCard.FIELD_DEFAULTS.layout) === "bubble";
 		const rows = {
 			date_time: `<div class="appearance-switches">${this._switchRow("show_relative_date", "Show relative date")}${this._switchRow("show_time", "Show event time")}</div>`,
 			description: this._switchRow("show_description", "Show description"),
 			location: this._switchRow("show_location", "Show location"),
 			calendar: this._switchRow("show_calendar_source", "Show calendar name"),
 		};
-		return this._displayOrder().map((key) => `<div class="appearance-order-row" draggable="true" data-display-key="${key}"><ha-icon class="drag-handle" icon="mdi:drag"></ha-icon><div class="appearance-order-content">${rows[key]}</div></div>`).join("");
+		const order = isBubble
+			? ["date_time", ...this._displayOrder().filter((key) => key !== "date_time")]
+			: this._displayOrder();
+		return order.map((key) => {
+			const locked = isBubble && key === "date_time";
+			return `<div class="appearance-order-row${locked ? " locked" : ""}" draggable="${locked ? "false" : "true"}" data-display-key="${key}"><ha-icon class="drag-handle" icon="${locked ? "mdi:lock-outline" : "mdi:drag"}"></ha-icon><div class="appearance-order-content">${rows[key]}</div></div>`;
+		}).join("");
 	}
 
 	_calendarSettingsRows() {
@@ -1425,6 +1652,8 @@ class CalendarEventsCardEditor extends HTMLElement {
 				.appearance-order-row { display:grid; grid-template-columns:28px minmax(0,1fr); align-items:center; gap:8px; padding:8px; border:1px solid var(--divider-color); border-radius:9px; background:var(--secondary-background-color); }
 				.appearance-order-row.dragging { opacity:.45; }
 				.appearance-order-row.drag-over { border-color:var(--primary-color); }
+				.appearance-order-row.locked { opacity:.8; }
+				.appearance-order-row.locked .drag-handle { cursor:not-allowed; }
 				.drag-handle { color:var(--secondary-text-color); cursor:grab; }
 				.appearance-order-content { min-width:0; }
 				.appearance-switches { display:grid; gap:2px; }
@@ -1595,7 +1824,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 				}
 			</style>
 			<div class="editor">
-				<details class="section" open>
+				<details class="section" data-section="calendars"${this._sectionState.calendars ? " open" : ""}>
 					${this._sectionSummary(icons.calendars, "Calendars")}
 					<div class="section-content">
 						<div class="field">
@@ -1608,7 +1837,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 					</div>
 				</details>
 
-				<details class="section">
+				<details class="section" data-section="general"${this._sectionState.general ? " open" : ""}>
 					${this._sectionSummary(icons.general, "General")}
 					<div class="section-content">
 						<label>
@@ -1630,7 +1859,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 					</div>
 				</details>
 
-				<details class="section">
+				<details class="section" data-section="appearance"${this._sectionState.appearance ? " open" : ""}>
 					${this._sectionSummary(icons.appearance, "Appearance")}
 					<div class="section-content">
 						<div class="grid">
@@ -1644,7 +1873,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 					</div>
 				</details>
 
-				<details class="section" data-section="filters"${this._filtersSectionOpen ? " open" : ""}>
+				<details class="section" data-section="filters"${this._sectionState.filters ? " open" : ""}>
 					${this._sectionSummary(icons.filters, "Filters")}
 					<div class="section-content">
 						<div class="filter-list">
@@ -1772,6 +2001,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 		if (!list) return;
 		let dragged = null;
 		list.querySelectorAll(".appearance-order-row").forEach((row) => {
+			if (row.classList.contains("locked")) return;
 			row.addEventListener("dragstart", () => { dragged = row; row.classList.add("dragging"); });
 			row.addEventListener("dragover", (event) => {
 				event.preventDefault();
@@ -1886,7 +2116,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 				},
 			];
 
-			this._filtersSectionOpen = true;
+			this._sectionState.filters = true;
 			this._setFilters(filters, true);
 		});
 
@@ -1898,7 +2128,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 					(_, filterIndex) => filterIndex !== index,
 				);
 
-				this._filtersSectionOpen = true;
+				this._sectionState.filters = true;
 				this._setFilters(filters, true);
 			});
 		});
@@ -1923,13 +2153,13 @@ class CalendarEventsCardEditor extends HTMLElement {
 	}
 
 	_initializeSectionState() {
-		const filtersSection = this.querySelector('[data-section="filters"]');
-		if (!filtersSection) {
-			return;
-		}
-
-		filtersSection.addEventListener("toggle", () => {
-			this._filtersSectionOpen = filtersSection.open;
+		this.querySelectorAll("details.section[data-section]").forEach((section) => {
+			section.addEventListener("toggle", () => {
+				this._sectionState = {
+					...this._sectionState,
+					[section.dataset.section]: section.open,
+				};
+			});
 		});
 	}
 
@@ -2039,7 +2269,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 		);
 
 		if (rerender) {
-			this._filtersSectionOpen = true;
+			this._sectionState.filters = true;
 			this._render();
 			this._updateValues();
 		}
@@ -2168,6 +2398,10 @@ class CalendarEventsCardEditor extends HTMLElement {
 				composed: true,
 			}),
 		);
+		if (key === "layout") {
+			this._render();
+			this._updateValues();
+		}
 	}
 }
 
