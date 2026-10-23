@@ -5,7 +5,7 @@
  * License: MIT
  */
  
-const CARD_VERSION = "1.0.7";
+const CARD_VERSION = "1.0.8";
 
 /* ---------------------------------------------------------------------- */
 /*  Main card                                                             */
@@ -265,17 +265,29 @@ class CalendarEventsCard extends HTMLElement {
 		return /^mdi:[a-z0-9-]+$/i.test(value) ? value : fallback;
 	}
 
+	_safeCustomColor(color) {
+		const value = String(color || "").trim();
+		if (!value || /[;{}<>"']/.test(value)) return "";
+		if (/^#[0-9a-f]{3,4}([0-9a-f]{3,4})?$/i.test(value)) return value;
+		if (typeof CSS !== "undefined" && CSS.supports?.("color", value)) return value;
+		return "";
+	}
+
 	_resolveUiColor(color) {
-		const value = String(color || "primary").trim().toLowerCase();
-		const allowed = new Set([
+		const rawValue = String(color || "primary").trim();
+		const value = rawValue.toLowerCase();
+		const themeColors = new Set([
 			"primary", "accent", "red", "pink", "purple", "deep-purple",
 			"indigo", "blue", "light-blue", "cyan", "teal", "green",
 			"light-green", "lime", "yellow", "amber", "orange",
-			"deep-orange", "brown", "grey", "blue-grey",
+			"deep-orange", "brown", "light-grey", "grey", "dark-grey", "blue-grey",
 		]);
-		if (!allowed.has(value) || value === "primary") return "var(--primary-color)";
+		if (value === "primary") return "var(--primary-color)";
 		if (value === "accent") return "var(--accent-color)";
-		return `var(--${value}-color)`;
+		if (value === "light-grey") return "var(--light-grey-color, #bdbdbd)";
+		if (value === "dark-grey") return "var(--dark-grey-color, #616161)";
+		if (themeColors.has(value)) return `var(--${value}-color)`;
+		return this._safeCustomColor(rawValue) || "var(--primary-color)";
 	}
 
 	_updateIntervalMinutes() {
@@ -1360,18 +1372,29 @@ class CalendarEventsCardEditor extends HTMLElement {
 			.join("");
 	}
 
+	_safeCustomColor(color) {
+		const value = String(color || "").trim();
+		if (!value || /[;{}<>"']/.test(value)) return "";
+		if (/^#[0-9a-f]{3,4}([0-9a-f]{3,4})?$/i.test(value)) return value;
+		if (typeof CSS !== "undefined" && CSS.supports?.("color", value)) return value;
+		return "";
+	}
+
 	_filterIconColor(rule) {
 		if ((rule.action || "include") === "exclude") return "#64748b";
-		const value = String(rule.color || "").trim().toLowerCase();
-		const allowed = new Set([
+		const rawValue = String(rule.color || "").trim();
+		const value = rawValue.toLowerCase();
+		const themeColors = new Set([
 			"accent", "red", "pink", "purple", "deep-purple", "indigo",
 			"blue", "light-blue", "cyan", "teal", "green", "light-green",
 			"lime", "yellow", "amber", "orange", "deep-orange", "brown",
-			"grey", "blue-grey",
+			"light-grey", "grey", "dark-grey", "blue-grey",
 		]);
-		if (!allowed.has(value)) return "var(--secondary-text-color)";
 		if (value === "accent") return "var(--accent-color)";
-		return `var(--${value}-color, var(--secondary-text-color))`;
+		if (value === "light-grey") return "var(--light-grey-color, #bdbdbd)";
+		if (value === "dark-grey") return "var(--dark-grey-color, #616161)";
+		if (themeColors.has(value)) return `var(--${value}-color, var(--secondary-text-color))`;
+		return this._safeCustomColor(rawValue) || "var(--secondary-text-color)";
 	}
 
 	_filterRow(rule, index) {
