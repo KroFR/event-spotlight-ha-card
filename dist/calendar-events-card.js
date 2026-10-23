@@ -5,7 +5,7 @@
  * License: MIT
  */
  
-const CARD_VERSION = "1.0.5";
+const CARD_VERSION = "1.0.6";
 
 /* ---------------------------------------------------------------------- */
 /*  Main card                                                             */
@@ -557,9 +557,8 @@ class CalendarEventsCard extends HTMLElement {
 						event.show_background_color ? "" : "no-card-background-color",
 					].filter(Boolean).join(" ");
 					const backgroundMix = event.show_background_color ? "9%" : "0%";
-					const backgroundBase = !event.show_background_color && darkMode
-						? "var(--secondary-background-color)"
-						: "var(--ha-card-background, var(--card-background-color))";
+					const backgroundBase =
+						"var(--ha-card-background, var(--card-background-color))";
 					const borderColor = event.show_background_color
 						? this._escape(event.color)
 						: "var(--divider-color)";
@@ -805,9 +804,6 @@ _baseStyles() {
 			);
 			box-shadow: var(--ha-card-box-shadow, none);
 		}
-		.mushroom .event.no-card-background-color {
-			background: var(--event-background-base, var(--ha-card-background, var(--card-background-color)));
-		}
 		.mushroom .event-icon {
 			width: 36px;
 			height: 36px;
@@ -944,10 +940,6 @@ _baseStyles() {
 				var(--event-color) var(--event-background-mix, 9%),
 				var(--event-background-base, var(--ha-card-background, var(--card-background-color)))
 			);
-		}
-		.pro .pro-row.no-card-background-color {
-			background: transparent;
-			border-radius: 0;
 		}
 		.pro-date {
 			display: grid;
