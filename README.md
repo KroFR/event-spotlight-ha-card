@@ -50,7 +50,7 @@ At least one calendar entity is required.
 4. Add this repository URL: https://github.com/KroFR/calendar-events-ha-card
 5. Select Dashboard as the category.
 6. Click Add.
-7. Search for Car Leasing Card and install it.
+7. Search for Calendar Events Card and install it.
 
 ### Manual
 
@@ -117,7 +117,10 @@ calendars:
 
 ### Bubble
 
-Groups events by day. The date is displayed once for the day, with each event shown as a compact row underneath.
+Groups events by day and displays each event as a compact timeline entry.
+
+> [!Note]
+> In the Bubble layout, relative date and event time always remain on the first line. Only description, location, and calendar source can be reordered.
 
 | Light Theme | Dark Theme |
 |---|---|
@@ -181,13 +184,16 @@ A filter contains:
 | `show_icon_background_color` | boolean | Apply the selected color to the icon background |
 | `show_background_color` | boolean | Apply a subtle selected color to the event background |
 
-Exclude filters take priority over include filters.
+> [!Note]
+> Exclude filters take priority over include filters.
 
 ### Supported colors
 
-The card accepts Home Assistant UI colors including:
+The card supports Home Assistant theme colors:
 
-`primary`, `accent`, `red`, `pink`, `purple`, `deep-purple`, `indigo`, `blue`, `light-blue`, `cyan`, `teal`, `green`, `light-green`, `lime`, `yellow`, `amber`, `orange`, `deep-orange`, `brown`, `grey`, and `blue-grey`.
+`primary`, `accent`, `red`, `pink`, `purple`, `deep-purple`, `indigo`, `blue`, `light-blue`, `cyan`, `teal`, `green`, `light-green`, `lime`, `yellow`, `amber`, `orange`, `deep-orange`, `brown`, `light-grey`, `grey`, `dark-grey`, and `blue-grey`.
+
+Custom CSS colors are also supported, including hexadecimal values such as `#ff0000` and `#ff000080`
 
 ## 📝 Usage examples
 
@@ -250,6 +256,12 @@ filters:
 Exclude filters apply regardless of whether a calendar uses `all` or `filtered` mode.
 
 ```yaml
+type: custom:calendar-events-card
+name: Business Calendar
+calendars:
+  - entity: calendar.business
+    event_mode: all
+layout: mushroom
 filters:
   - action: exclude
     field: summary
@@ -291,7 +303,7 @@ calendars:
 layout: list
 show_description: true
 show_location: true
-show_calendar: true
+show_calendar_source: true
 display_order:
   - date_time
   - location
