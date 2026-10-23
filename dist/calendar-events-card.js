@@ -5,7 +5,7 @@
  * License: MIT
  */
  
-const CARD_VERSION = "1.0.8";
+const CARD_VERSION = "1.0.9";
 
 /* ---------------------------------------------------------------------- */
 /*  Main card                                                             */
@@ -919,10 +919,12 @@ class CalendarEventsCard extends HTMLElement {
 			}
 			.list .event {
 				display: flex;
+				box-sizing: border-box;
 				align-items: center;
 				align-self: flex-start;
 				gap: 10px;
 				width: 100%;
+				max-width: 100%;
 				min-width: 0;
 				min-height: 0;
 				height: fit-content;
