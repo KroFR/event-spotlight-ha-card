@@ -10,9 +10,9 @@ A custom Lovelace card for [Home Assistant](https://www.home-assistant.io/) that
 
 Calendar Events Card supports multiple layouts, per-calendar display modes, include/exclude filters, custom labels, icons and colors, relative dates, event details, and a full visual editor.
 
-| Light Theme | Dark Theme |
+| From default | To fully customized, no YAML |
 |---|---|
-| image | image |
+| <img width="501" height="277" alt="image" src="https://github.com/user-attachments/assets/7cb87eeb-eacb-4850-b3ef-e3862255fa98" /> | <img width="502" height="276" alt="image" src="https://github.com/user-attachments/assets/65945f8b-fc4d-4822-89c2-6be025238d2c" /> |
 
 ## ✨ Features
 
@@ -121,11 +121,7 @@ Groups events by day. The date is displayed once for the day, with each event sh
 
 | Light Theme | Dark Theme |
 |---|---|
-| <img width="471" height="340" alt="image" src="https://github.com/user-attachments/assets/f2033bed-e52b-428f-a202-e4975e5e2523" /> | <img width="474" height="339" alt="image" src="https://github.com/user-attachments/assets/11c9cc4a-585c-487f-85d7-736a8c892de5" /> |
-
-```yaml
-layout: bubble
-```
+| <img width="472" height="540" alt="image" src="https://github.com/user-attachments/assets/4892331f-cf85-4d3b-83f9-126a73f3cd10" /> | <img width="474" height="540" alt="image" src="https://github.com/user-attachments/assets/82b6cc51-0c4a-4873-a049-3e886f49be26" /> |
 
 ### Chips
 
@@ -133,11 +129,7 @@ Displays events as compact pill-shaped chips. Useful when dashboard space is lim
 
 | Light Theme | Dark Theme |
 |---|---|
-| <img width="472" height="163" alt="image" src="https://github.com/user-attachments/assets/70a0bd7a-d3e9-4bc2-b6b6-2b711939ef0d" /> | <img width="473" height="163" alt="image" src="https://github.com/user-attachments/assets/2bf1b6e1-d651-40f5-b29c-5b649f261cba" /> |
-
-```yaml
-layout: chips
-```
+| <img width="473" height="207" alt="image" src="https://github.com/user-attachments/assets/236926e6-aa38-4470-ac59-6b1f1daba9da" /> | <img width="475" height="209" alt="image" src="https://github.com/user-attachments/assets/6b543acb-abdc-4200-b7a9-8c448e57643d" /> |
 
 ### List
 
@@ -145,11 +137,7 @@ Displays one event per full-width row.
 
 | Light Theme | Dark Theme |
 |---|---|
-| <img width="472" height="517" alt="image" src="https://github.com/user-attachments/assets/bdbbbdc9-a333-46a2-abf9-c5967733162f" /> | <img width="474" height="518" alt="image" src="https://github.com/user-attachments/assets/8c965ecb-2f12-4e5a-ab6e-e86fa54e571a" /> |
-
-```yaml
-layout: list
-```
+| image | image |
 
 ### Mushroom
 
@@ -157,11 +145,7 @@ The default compact layout. Each event is displayed as a small Mushroom-style ca
 
 | Light Theme | Dark Theme |
 |---|---|
-| <img width="472" height="213" alt="image" src="https://github.com/user-attachments/assets/2a4c00b1-42d9-4533-bb88-ee181dc88319" /> | <img width="474" height="216" alt="image" src="https://github.com/user-attachments/assets/a8ee08bd-5e59-46de-ab89-468003552477" /> |
-
-```yaml
-layout: mushroom
-```
+| <img width="474" height="391" alt="image" src="https://github.com/user-attachments/assets/545714d2-1aec-4531-93d1-ae717451c054" /> | <img width="473" height="390" alt="image" src="https://github.com/user-attachments/assets/3f04c9cc-7f94-41d4-9d6c-1ab0ec6b4063" /> |
 
 ### Pro
 
@@ -169,11 +153,7 @@ Displays a dedicated date column, a colored event marker, and event information 
 
 | Light Theme | Dark Theme |
 |---|---|
-| <img width="473" height="471" alt="image" src="https://github.com/user-attachments/assets/5d949c37-e510-4546-b36d-f6880bfa2c71" /> | <img width="474" height="473" alt="image" src="https://github.com/user-attachments/assets/216b63b8-a0d1-46ce-b939-d5ab663e0cc8" /> |
-
-```yaml
-layout: pro
-```
+| <img width="471" height="618" alt="image" src="https://github.com/user-attachments/assets/f766d5aa-fc6c-4b4d-b62c-f20e1750af8b" /> | <img width="474" height="621" alt="image" src="https://github.com/user-attachments/assets/185b9fff-940d-4197-9ff8-18895903bbce" /> |
 
 ### Square
 
@@ -181,11 +161,7 @@ Displays events in responsive square tiles.
 
 | Light Theme | Dark Theme |
 |---|---|
-| <img width="472" height="419" alt="image" src="https://github.com/user-attachments/assets/0f25c360-4ede-4de3-ab39-0657617a809b" /> | <img width="476" height="419" alt="image" src="https://github.com/user-attachments/assets/e86daa05-4858-43ae-8fd2-d8dfe93ad8b2" /> |
-
-```yaml
-layout: square
-```
+| <img width="473" height="489" alt="image" src="https://github.com/user-attachments/assets/87b2bcc3-48cd-4ce6-849b-6448b11392fa" /> | <img width="475" height="491" alt="image" src="https://github.com/user-attachments/assets/0423f078-ce2a-4048-b178-22c155aa7a44" /> |
 
 ## 🔎 Filters
 
