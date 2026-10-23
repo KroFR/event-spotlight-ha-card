@@ -19,7 +19,7 @@ Whether you want to keep track of the next wast collection or never miss a famil
 ## ✨ Features
 
 - Display events from one or more `calendar.*` entities
-- Six layouts: Mushroom, Bubble, Chips, List, Pro, and Square
+- Six layouts: Bubble, Chips, List, Mushroom, Pro, and Square
 - Show all events or only filtered events independently for each calendar
 - Include and exclude filters for title, description, location, and calendar
 - Match events using contains, equals, starts with, ends with, or regular expressions
