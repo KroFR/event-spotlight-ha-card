@@ -10,7 +10,7 @@ A custom Lovelace card for [Home Assistant](https://www.home-assistant.io/) that
 
 Instead of displaying every event from your calendars, Event Spotlight Card uses rules to select specific events and present them with custom labels, icons, colors, and layouts. Use it for waste collections, birthdays, anniversaries, medical appointments, reminders, or any other events you want to keep in sight.
 
-| From default | To fully customized, no YAML |
+| Light Theme | Dark Theme |
 |---|---|
 | image | image |
 
