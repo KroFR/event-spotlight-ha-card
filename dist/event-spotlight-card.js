@@ -1,11 +1,11 @@
 /*
- * Event Spotlight Card for Home Assistant
- * Displays and customizes events from one or more Home Assistant calendars.
- *
- * License: MIT
- */
- 
-const CARD_VERSION = "1.1.0";
+* Event Spotlight Card for Home Assistant
+* Displays and customizes events from one or more Home Assistant calendars.
+*
+* License: MIT
+*/
+
+const CARD_VERSION = "1.1.1";
 
 /* ---------------------------------------------------------------------- */
 /*  Main card                                                             */
@@ -87,10 +87,14 @@ class EventSpotlightCard extends HTMLElement {
 		this._loadKey = "";
 		this._allDayTimer = null;
 		this._updateTimer = null;
+		this._stretchedLayoutFrame = null;
 	}
 	disconnectedCallback() {
 		if (this._allDayTimer) clearTimeout(this._allDayTimer);
 		if (this._updateTimer) clearTimeout(this._updateTimer);
+		if (this._stretchedLayoutFrame) {
+			cancelAnimationFrame(this._stretchedLayoutFrame);
+		}
 	}
 
 	setConfig(config) {
@@ -445,6 +449,62 @@ class EventSpotlightCard extends HTMLElement {
 		return [...configured.filter((key) => defaults.includes(key)), ...defaults.filter((key) => !configured.includes(key))];
 	}
 
+	_scheduleStretchedLayout() {
+		if (this._stretchedLayoutFrame) {
+			cancelAnimationFrame(this._stretchedLayoutFrame);
+		}
+
+		this._stretchedLayoutFrame = requestAnimationFrame(() => {
+			this._stretchedLayoutFrame = requestAnimationFrame(() => {
+				this._stretchedLayoutFrame = null;
+				this._applyStretchedLayout();
+			});
+		});
+	}
+
+	_applyStretchedLayout() {
+		const container = this.shadowRoot?.querySelector(
+			".events.align-stretched.chips, .events.align-stretched.mushroom",
+		);
+
+		if (!container) {
+			return;
+		}
+
+		const cards = [...container.querySelectorAll(":scope > .event")];
+		if (cards.length < 2) {
+			return;
+		}
+
+		const rows = [];
+		cards.forEach((card) => {
+			const top = Math.round(card.offsetTop);
+			const row = rows.find((item) => Math.abs(item.top - top) <= 1);
+
+			if (row) {
+				row.cards.push(card);
+			} else {
+				rows.push({ top, cards: [card] });
+			}
+		});
+
+		const lastRow = rows.at(-1);
+		const previousRow = rows.at(-2);
+
+		if (!lastRow || lastRow.cards.length !== 1 || !previousRow?.cards.length) {
+			return;
+		}
+
+		const previousWidth = previousRow.cards.reduce(
+			(total, card) => total + card.getBoundingClientRect().width,
+			0,
+		) / previousRow.cards.length;
+
+		const lastCard = lastRow.cards[0];
+		lastCard.style.flex = `0 0 ${previousWidth}px`;
+		lastCard.style.width = `${previousWidth}px`;
+	}
+
 	_render() {
 		if (!this.shadowRoot || !this._config || !this._hass) {
 			return;
@@ -456,7 +516,7 @@ class EventSpotlightCard extends HTMLElement {
 			? configuredLayout
 			: EventSpotlightCard.FIELD_DEFAULTS.layout;
 		const configuredAlignment = this._config.card_alignment || EventSpotlightCard.FIELD_DEFAULTS.card_alignment;
-		const cardAlignment = ["left", "center", "right", "justified"].includes(configuredAlignment)
+		const cardAlignment = ["left", "center", "right", "justified", "stretched"].includes(configuredAlignment)
 			? configuredAlignment
 			: EventSpotlightCard.FIELD_DEFAULTS.card_alignment;
 		const darkMode = Boolean(this._hass?.themes?.darkMode);
@@ -662,6 +722,8 @@ class EventSpotlightCard extends HTMLElement {
 					${contentBlock}
 				</div>
 			</ha-card>`;
+
+		this._scheduleStretchedLayout();
 	}
 
 	_baseStyles() {
@@ -730,6 +792,11 @@ class EventSpotlightCard extends HTMLElement {
 			.events.align-center { justify-content: center; }
 			.events.align-right { justify-content: end; }
 			.events.align-justified { justify-content: space-between; width: 100%; }
+			.events.align-stretched { justify-content: space-between; width: 100%; }
+			.events.chips.align-stretched .event,
+			.events.mushroom.align-stretched .event {
+				flex: 1 1 auto;
+			}
 
 			/* ------------------------------------------------------------------ */
 			/* Bubble layout                                                       */
@@ -2260,6 +2327,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 							{ value: "center", label: "Center" },
 							{ value: "right", label: "Right" },
 							{ value: "justified", label: "Justified" },
+							{ value: "stretched", label: "Stretched" },
 						],
 					},
 				};
