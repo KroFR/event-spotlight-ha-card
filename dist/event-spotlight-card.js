@@ -1,31 +1,31 @@
 /*
- * Calendar Events Card for Home Assistant
+ * Event Spotlight Card for Home Assistant
  * Displays and customizes events from one or more Home Assistant calendars.
  *
  * License: MIT
  */
  
-const CARD_VERSION = "1.0.9";
+const CARD_VERSION = "1.1.0";
 
 /* ---------------------------------------------------------------------- */
 /*  Main card                                                             */
 /* ---------------------------------------------------------------------- */
-class CalendarEventsCard extends HTMLElement {
+class EventSpotlightCard extends HTMLElement {
 	static TRANSLATIONS = {
 		en: {
-			title: "Calendar events",
+			title: "Event spotlight",
 			loading: "Loading events…",
-			empty: "No upcoming events",
+			empty: "No matching events",
 			today: "Today",
 			tomorrow: "Tomorrow",
 			in_days: "In {n} days",
 			all_day: "All day",
-			error: "Unable to load calendar events",
+			error: "Unable to load spotlight events",
 		},
 		fr: {
 			title: "Événements du calendrier",
 			loading: "Chargement des événements…",
-			empty: "Aucun événement à venir",
+			empty: "Aucun événement correspondant",
 			today: "Aujourd’hui",
 			tomorrow: "Demain",
 			in_days: "Dans {n} jours",
@@ -53,7 +53,7 @@ class CalendarEventsCard extends HTMLElement {
 	};
 
 	static getConfigElement() {
-		return document.createElement("calendar-events-card-editor");
+		return document.createElement("event-spotlight-card-editor");
 	}
 
 	static getStubConfig(hass, entities, entitiesFallback) {
@@ -71,7 +71,7 @@ class CalendarEventsCard extends HTMLElement {
 				? [
 						{
 							entity: calendar,
-							event_mode: "all",
+							
 						},
 					]
 				: [],
@@ -106,7 +106,7 @@ class CalendarEventsCard extends HTMLElement {
 		this._hass = hass;
 		if (!this.shadowRoot) this.attachShadow({ mode: "open" });
 		this._render();
-		const key = JSON.stringify([this._calendarSettingsKey(), this._config?.days, this._config?.filters]);
+		const key = JSON.stringify([this._calendarIds(), this._config?.days, this._config?.rules]);
 		if (key !== this._loadKey) this._loadEvents();
 	}
 
@@ -135,40 +135,30 @@ class CalendarEventsCard extends HTMLElement {
 
 	_normalizeCalendars(items) {
 		return (Array.isArray(items) ? items : [items])
-			.map((item) => {
-				const calendar = typeof item === "string" ? { entity: item } : { ...item };
-
-				return {
-					...calendar,
-					event_mode: calendar.event_mode === "filtered" ? "filtered" : "all",
-				};
-			})
+			.map((item) => (typeof item === "string" ? { entity: item } : { ...item }))
 			.filter((item) => item?.entity?.startsWith("calendar."));
 	}
 
-	_calendarSettingsKey() {
-		return (this._config?.calendars || []).map((item) => ({
-			entity: item.entity,
-			event_mode: item.event_mode || "all",
-		}));
+	_calendarIds() {
+		return (this._config?.calendars || []).map((item) => item.entity);
 	}
 
 	_lang() {
 		const configured = this._config?.language;
 		if (configured && configured !== "auto")
-			return CalendarEventsCard.TRANSLATIONS[configured] ? configured : "en";
+			return EventSpotlightCard.TRANSLATIONS[configured] ? configured : "en";
 		const language = (
 			this._hass?.locale?.language ||
 			this._hass?.language ||
 			"en"
 		).split("-")[0];
-		return CalendarEventsCard.TRANSLATIONS[language] ? language : "en";
+		return EventSpotlightCard.TRANSLATIONS[language] ? language : "en";
 	}
 
 	_t(lang, key, n) {
 		return (
-			CalendarEventsCard.TRANSLATIONS[lang]?.[key] ||
-			CalendarEventsCard.TRANSLATIONS.en[key] ||
+			EventSpotlightCard.TRANSLATIONS[lang]?.[key] ||
+			EventSpotlightCard.TRANSLATIONS.en[key] ||
 			key
 		).replace("{n}", n ?? "");
 	}
@@ -242,10 +232,9 @@ class CalendarEventsCard extends HTMLElement {
 			...event,
 			calendar: calendar.entity,
 			calendar_name: calendarName,
-			calendar_event_mode: calendar.event_mode || "all",
 			start_date: this._date(event.start),
 		};
-		const match = (this._config.filters || []).find(
+		const match = (this._config.rules || []).find(
 			(rule) =>
 				(rule.action || "include") === "include" &&
 				this._ruleMatches(base, rule),
@@ -292,11 +281,11 @@ class CalendarEventsCard extends HTMLElement {
 
 	_updateIntervalMinutes() {
 		const value = Number(
-			this._config?.update_interval ?? CalendarEventsCard.FIELD_DEFAULTS.update_interval,
+			this._config?.update_interval ?? EventSpotlightCard.FIELD_DEFAULTS.update_interval,
 		);
 		return Number.isFinite(value) && value >= 1 && value <= 1440
 			? value
-			: CalendarEventsCard.FIELD_DEFAULTS.update_interval;
+			: EventSpotlightCard.FIELD_DEFAULTS.update_interval;
 	}
 
 	_scheduleUpdate() {
@@ -310,8 +299,8 @@ class CalendarEventsCard extends HTMLElement {
 	}
 
 	_allDayHideTime() {
-		const value = String(this._config?.all_day_hide_time ?? CalendarEventsCard.FIELD_DEFAULTS.all_day_hide_time).trim();
-		return /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : CalendarEventsCard.FIELD_DEFAULTS.all_day_hide_time;
+		const value = String(this._config?.all_day_hide_time ?? EventSpotlightCard.FIELD_DEFAULTS.all_day_hide_time).trim();
+		return /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : EventSpotlightCard.FIELD_DEFAULTS.all_day_hide_time;
 	}
 
 	_isAllDayEventVisible(event, now = new Date()) {
@@ -334,24 +323,14 @@ class CalendarEventsCard extends HTMLElement {
 	}
 
 	_passes(event) {
-		const rules = this._config.filters || [];
-		const excludeRules = rules.filter(
-			(rule) => (rule.action || "include") === "exclude" && rule.value,
+		const rules = this._config.rules || [];
+		const excluded = rules.some(
+			(rule) => (rule.action || "include") === "exclude" && rule.value && this._ruleMatches(event, rule),
 		);
-
-		if (excludeRules.some((rule) => this._ruleMatches(event, rule))) {
-			return false;
-		}
-
-		if (event.calendar_event_mode === "all") {
-			return true;
-		}
-
-		const includeRules = rules.filter(
-			(rule) => (rule.action || "include") === "include" && rule.value,
+		if (excluded) return false;
+		return rules.some(
+			(rule) => (rule.action || "include") === "include" && rule.value && this._ruleMatches(event, rule),
 		);
-
-		return includeRules.some((rule) => this._ruleMatches(event, rule));
 	}
 	async _loadEvents() {
 		if (!this._hass || !this._config || this._loading) return;
@@ -365,7 +344,7 @@ class CalendarEventsCard extends HTMLElement {
 		this._error = "";
 		this._render();
 		const days = Number(
-			this._config.days ?? CalendarEventsCard.FIELD_DEFAULTS.days,
+			this._config.days ?? EventSpotlightCard.FIELD_DEFAULTS.days,
 		);
 		const start = new Date();
 		const end = new Date(start.getTime() + days * 86400000);
@@ -397,10 +376,10 @@ class CalendarEventsCard extends HTMLElement {
 				.flat()
 				.filter((event) => this._passes(event))
 				.sort((a, b) => a.start_date - b.start_date);
-			this._loadKey = JSON.stringify([this._calendarSettingsKey(), this._config.days, this._config.filters]);
+			this._loadKey = JSON.stringify([this._calendarIds(), this._config.days, this._config.rules]);
 		} catch (error) {
 			console.error(
-				"Calendar Events Card: failed to load calendar events",
+				"Event Spotlight Card: failed to load spotlight events",
 				error,
 			);
 			this._error = error?.message || "error";
@@ -443,7 +422,7 @@ class CalendarEventsCard extends HTMLElement {
 							}).format(d);
 		const showRelativeDate =
 			this._config.show_relative_date ??
-			CalendarEventsCard.FIELD_DEFAULTS.show_relative_date;
+			EventSpotlightCard.FIELD_DEFAULTS.show_relative_date;
 		if (!showRelativeDate)
 			label = new Intl.DateTimeFormat(lang, {
 				weekday: "short",
@@ -451,7 +430,7 @@ class CalendarEventsCard extends HTMLElement {
 				month: "short",
 			}).format(d);
 		const showTime =
-			this._config.show_time ?? CalendarEventsCard.FIELD_DEFAULTS.show_time;
+			this._config.show_time ?? EventSpotlightCard.FIELD_DEFAULTS.show_time;
 		if (
 			showTime &&
 			!/^\d{4}-\d{2}-\d{2}$/.test(event.start || "")
@@ -461,7 +440,7 @@ class CalendarEventsCard extends HTMLElement {
 	}
 
 	_displayOrder() {
-		const defaults = CalendarEventsCard.FIELD_DEFAULTS.display_order;
+		const defaults = EventSpotlightCard.FIELD_DEFAULTS.display_order;
 		const configured = Array.isArray(this._config.display_order) ? this._config.display_order : [];
 		return [...configured.filter((key) => defaults.includes(key)), ...defaults.filter((key) => !configured.includes(key))];
 	}
@@ -472,14 +451,14 @@ class CalendarEventsCard extends HTMLElement {
 		}
 
 		const lang = this._lang();
-		const configuredLayout = this._config.layout || CalendarEventsCard.FIELD_DEFAULTS.layout;
+		const configuredLayout = this._config.layout || EventSpotlightCard.FIELD_DEFAULTS.layout;
 		const layout = ["bubble", "chips", "list", "mushroom", "pro", "square"].includes(configuredLayout)
 			? configuredLayout
-			: CalendarEventsCard.FIELD_DEFAULTS.layout;
-		const configuredAlignment = this._config.card_alignment || CalendarEventsCard.FIELD_DEFAULTS.card_alignment;
+			: EventSpotlightCard.FIELD_DEFAULTS.layout;
+		const configuredAlignment = this._config.card_alignment || EventSpotlightCard.FIELD_DEFAULTS.card_alignment;
 		const cardAlignment = ["left", "center", "right", "justified"].includes(configuredAlignment)
 			? configuredAlignment
-			: CalendarEventsCard.FIELD_DEFAULTS.card_alignment;
+			: EventSpotlightCard.FIELD_DEFAULTS.card_alignment;
 		const darkMode = Boolean(this._hass?.themes?.darkMode);
 		const visibleEvents = this._events.filter((event) => this._isAllDayEventVisible(event));
 		this._scheduleAllDayRefresh();
@@ -519,8 +498,8 @@ class CalendarEventsCard extends HTMLElement {
 					const bubbleDay = new Intl.DateTimeFormat(lang, { day: "2-digit" }).format(first.start_date);
 					const bubbleMonth = new Intl.DateTimeFormat(lang, { month: "short" }).format(first.start_date).replace(/\.$/, "");
 					const rows = dayEvents.map((event) => {
-						const showTime = this._config.show_time ?? CalendarEventsCard.FIELD_DEFAULTS.show_time;
-						const showRelativeDate = this._config.show_relative_date ?? CalendarEventsCard.FIELD_DEFAULTS.show_relative_date;
+						const showTime = this._config.show_time ?? EventSpotlightCard.FIELD_DEFAULTS.show_time;
+						const showRelativeDate = this._config.show_relative_date ?? EventSpotlightCard.FIELD_DEFAULTS.show_relative_date;
 						const isAllDay = /^\d{4}-\d{2}-\d{2}$/.test(event.start || "");
 						let bubbleTime = "";
 						if (showTime) {
@@ -538,11 +517,11 @@ class CalendarEventsCard extends HTMLElement {
 							? `color-mix(in srgb, ${event.color} 9%, var(--ha-card-background, var(--card-background-color)))`
 							: "transparent";
 						const extraBlocks = {
-							description: (this._config.show_description ?? CalendarEventsCard.FIELD_DEFAULTS.show_description) && event.description
+							description: (this._config.show_description ?? EventSpotlightCard.FIELD_DEFAULTS.show_description) && event.description
 								? `<div class="event-detail">${this._escape(event.description)}</div>` : "",
-							location: (this._config.show_location ?? CalendarEventsCard.FIELD_DEFAULTS.show_location) && event.location
+							location: (this._config.show_location ?? EventSpotlightCard.FIELD_DEFAULTS.show_location) && event.location
 								? `<div class="event-detail">${this._escape(event.location)}</div>` : "",
-							calendar: (this._config.show_calendar_source ?? CalendarEventsCard.FIELD_DEFAULTS.show_calendar_source)
+							calendar: (this._config.show_calendar_source ?? EventSpotlightCard.FIELD_DEFAULTS.show_calendar_source)
 								? `<div class="event-detail">${this._escape(event.calendar_name)}</div>` : "",
 						};
 						const extras = this._displayOrder()
@@ -571,11 +550,11 @@ class CalendarEventsCard extends HTMLElement {
 					const dayNumber = new Intl.DateTimeFormat(lang, { day: "2-digit" }).format(first.start_date);
 
 					const rows = dayEvents.map((event) => {
-						const showRelativeDate = this._config.show_relative_date ?? CalendarEventsCard.FIELD_DEFAULTS.show_relative_date;
-						const showTime = this._config.show_time ?? CalendarEventsCard.FIELD_DEFAULTS.show_time;
-						const showDescription = this._config.show_description ?? CalendarEventsCard.FIELD_DEFAULTS.show_description;
-						const showLocation = this._config.show_location ?? CalendarEventsCard.FIELD_DEFAULTS.show_location;
-						const showCalendarSource = this._config.show_calendar_source ?? CalendarEventsCard.FIELD_DEFAULTS.show_calendar_source;
+						const showRelativeDate = this._config.show_relative_date ?? EventSpotlightCard.FIELD_DEFAULTS.show_relative_date;
+						const showTime = this._config.show_time ?? EventSpotlightCard.FIELD_DEFAULTS.show_time;
+						const showDescription = this._config.show_description ?? EventSpotlightCard.FIELD_DEFAULTS.show_description;
+						const showLocation = this._config.show_location ?? EventSpotlightCard.FIELD_DEFAULTS.show_location;
+						const showCalendarSource = this._config.show_calendar_source ?? EventSpotlightCard.FIELD_DEFAULTS.show_calendar_source;
 						let dateTime = showRelativeDate ? this._relativeDateLabel(event, lang) : "";
 						if (showTime) {
 							const isAllDay = /^\d{4}-\d{2}-\d{2}$/.test(event.start || "");
@@ -622,11 +601,11 @@ class CalendarEventsCard extends HTMLElement {
 				.map((event) => {
 					const detailBlocks = {
 						date_time: `<div class="event-date">${this._escape(this._dateLabel(event, lang))}</div>`,
-						description: (this._config.show_description ?? CalendarEventsCard.FIELD_DEFAULTS.show_description) && event.description
+						description: (this._config.show_description ?? EventSpotlightCard.FIELD_DEFAULTS.show_description) && event.description
 							? `<div class="event-detail">${this._escape(event.description)}</div>` : "",
-						location: (this._config.show_location ?? CalendarEventsCard.FIELD_DEFAULTS.show_location) && event.location
+						location: (this._config.show_location ?? EventSpotlightCard.FIELD_DEFAULTS.show_location) && event.location
 							? `<div class="event-detail">${this._escape(event.location)}</div>` : "",
-						calendar: (this._config.show_calendar_source ?? CalendarEventsCard.FIELD_DEFAULTS.show_calendar_source)
+						calendar: (this._config.show_calendar_source ?? EventSpotlightCard.FIELD_DEFAULTS.show_calendar_source)
 							? `<div class="event-detail">${this._escape(event.calendar_name)}</div>` : "",
 					};
 					const orderedDetails = this._displayOrder().map((key) => detailBlocks[key] || "").join("");
@@ -666,9 +645,9 @@ class CalendarEventsCard extends HTMLElement {
 		const title = this._escape(
 			this._config.name || this._t(lang, "title"),
 		);
-		const showTitle = this._config.show_title ?? CalendarEventsCard.FIELD_DEFAULTS.show_title;
-		const showTitleIcon = this._config.show_title_icon ?? CalendarEventsCard.FIELD_DEFAULTS.show_title_icon;
-		const showCardBackground = this._config.show_card_background ?? CalendarEventsCard.FIELD_DEFAULTS.show_card_background;
+		const showTitle = this._config.show_title ?? EventSpotlightCard.FIELD_DEFAULTS.show_title;
+		const showTitleIcon = this._config.show_title_icon ?? EventSpotlightCard.FIELD_DEFAULTS.show_title_icon;
+		const showCardBackground = this._config.show_card_background ?? EventSpotlightCard.FIELD_DEFAULTS.show_card_background;
 		const headerBlock = showTitle
 			? `<div class="header">${showTitleIcon ? `<div class="h-icon"><ha-icon icon="mdi:calendar-star"></ha-icon></div>` : ""}<div class="title">${title}</div></div>`
 			: "";
@@ -1248,30 +1227,24 @@ class CalendarEventsCard extends HTMLElement {
 /* ---------------------------------------------------------------------- */
 /*  Visual editor                                                         */
 /* ---------------------------------------------------------------------- */
-class CalendarEventsCardEditor extends HTMLElement {
+class EventSpotlightCardEditor extends HTMLElement {
 	static SECTION_ICONS = {
 		general: "mdi:cog-outline",
 		calendars: "mdi:calendar-multiple",
 		appearance: "mdi:palette-outline",
-		filters: "mdi:filter-outline",
+		rules: "mdi:format-list-checks",
 	};
 
-	static _getDeepActiveElement() {
-		let active = document.activeElement;
-		while (active?.shadowRoot?.activeElement)
-			active = active.shadowRoot.activeElement;
-		return active;
-	}
 
 	constructor() {
 		super();
 		this._rendered = false;
-		this._filterInputTimer = null;
+		this._ruleInputTimer = null;
 		this._sectionState = {
 			calendars: false,
 			general: false,
 			appearance: false,
-			filters: false,
+			rules: false,
 		};
 	}
 
@@ -1318,13 +1291,13 @@ class CalendarEventsCardEditor extends HTMLElement {
 	}
 
 	_displayOrder() {
-		const defaults = CalendarEventsCard.FIELD_DEFAULTS.display_order;
+		const defaults = EventSpotlightCard.FIELD_DEFAULTS.display_order;
 		const configured = Array.isArray(this._config.display_order) ? this._config.display_order : [];
 		return [...configured.filter((key) => defaults.includes(key)), ...defaults.filter((key) => !configured.includes(key))];
 	}
 
 	_appearanceRows() {
-		const isBubble = (this._config.layout || CalendarEventsCard.FIELD_DEFAULTS.layout) === "bubble";
+		const isBubble = (this._config.layout || EventSpotlightCard.FIELD_DEFAULTS.layout) === "bubble";
 		const rows = {
 			date_time: `<div class="appearance-switches">${this._switchRow("show_relative_date", "Show relative date")}${this._switchRow("show_time", "Show event time")}</div>`,
 			description: this._switchRow("show_description", "Show description"),
@@ -1343,63 +1316,22 @@ class CalendarEventsCardEditor extends HTMLElement {
 	_calendarSettingsRows() {
 		return (this._config.calendars || [])
 			.map((calendar) => {
-				const entityId = typeof calendar === "string" ? calendar : calendar.entity;
-				const eventMode = typeof calendar === "string"
-					? "all"
-					: calendar.event_mode || "all";
-				const state = this._hass?.states?.[entityId];
-				const name = state?.attributes?.friendly_name || entityId;
-
+				const item = typeof calendar === "string" ? { entity: calendar } : calendar;
+				const state = this._hass?.states?.[item.entity];
+				const name = state?.attributes?.friendly_name || item.entity;
 				return `
-					<div class="calendar-setting" data-calendar-entity="${this._escapeAttribute(entityId)}">
+					<div class="calendar-setting" data-calendar-entity="${this._escapeAttribute(item.entity)}">
 						<div class="calendar-setting-name">
 							<ha-icon icon="${this._escapeAttribute(this._safeIcon(state?.attributes?.icon))}"></ha-icon>
-							<div>
-								<span>${this._escapeAttribute(name)}</span>
-								<small>${this._escapeAttribute(entityId)}</small>
-							</div>
+							<div><span>${this._escapeAttribute(name)}</span><small>${this._escapeAttribute(item.entity)}</small></div>
 						</div>
-						<label>
-							Event display
-							<select data-calendar-mode>
-								<option value="all"${eventMode === "all" ? " selected" : ""}>All events</option>
-								<option value="filtered"${eventMode === "filtered" ? " selected" : ""}>Filtered events only</option>
-							</select>
-						</label>
-						<button class="calendar-remove" data-calendar-remove type="button" title="Remove calendar">
-							<ha-icon icon="mdi:delete-outline"></ha-icon>
-						</button>
+						<button class="calendar-remove" data-calendar-remove type="button" title="Remove calendar"><ha-icon icon="mdi:delete-outline"></ha-icon></button>
 					</div>`;
 			})
 			.join("");
 	}
 
-	_safeCustomColor(color) {
-		const value = String(color || "").trim();
-		if (!value || /[;{}<>"']/.test(value)) return "";
-		if (/^#[0-9a-f]{3,4}([0-9a-f]{3,4})?$/i.test(value)) return value;
-		if (typeof CSS !== "undefined" && CSS.supports?.("color", value)) return value;
-		return "";
-	}
-
-	_filterIconColor(rule) {
-		if ((rule.action || "include") === "exclude") return "#64748b";
-		const rawValue = String(rule.color || "").trim();
-		const value = rawValue.toLowerCase();
-		const themeColors = new Set([
-			"accent", "red", "pink", "purple", "deep-purple", "indigo",
-			"blue", "light-blue", "cyan", "teal", "green", "light-green",
-			"lime", "yellow", "amber", "orange", "deep-orange", "brown",
-			"light-grey", "grey", "dark-grey", "blue-grey",
-		]);
-		if (value === "accent") return "var(--accent-color)";
-		if (value === "light-grey") return "var(--light-grey-color, #bdbdbd)";
-		if (value === "dark-grey") return "var(--dark-grey-color, #616161)";
-		if (themeColors.has(value)) return `var(--${value}-color, var(--secondary-text-color))`;
-		return this._safeCustomColor(rawValue) || "var(--secondary-text-color)";
-	}
-
-	_filterRow(rule, index) {
+	_ruleRow(rule, index) {
 		const action = rule.action || "include";
 		const field = rule.field || "summary";
 		const operator = rule.operator || "contains";
@@ -1407,40 +1339,40 @@ class CalendarEventsCardEditor extends HTMLElement {
 		const rawValue = String(rule.value || "").trim();
 		const label = this._escapeAttribute(rawLabel);
 		const value = this._escapeAttribute(rawValue);
-		const title = this._escapeAttribute(rawLabel || rawValue || `Filter ${index + 1}`);
-		const rawIcon = rule.icon || (action === "exclude" ? "mdi:filter-remove-outline" : "");
+		const title = this._escapeAttribute(rawLabel || rawValue || `Rule ${index + 1}`);
+		const rawIcon = rule.icon || (action === "exclude" ? "mdi:rule-remove-outline" : "");
 		const icon = rawIcon ? this._escapeAttribute(this._safeIcon(rawIcon, "")) : "";
-		const iconColor = this._escapeAttribute(this._filterIconColor(rule));
+		const iconColor = this._escapeAttribute(this._ruleIconColor(rule));
 		const actionLabel = action === "exclude" ? "Exclude" : "Include";
 
 		return `
-			<details class="filter-rule" data-filter-index="${index}">
-				<summary class="filter-rule-summary">
-					<span class="filter-rule-identity">
-						${icon ? `<ha-icon class="filter-rule-icon" icon="${icon}" style="color:${iconColor}"></ha-icon>` : ""}
-						<span class="filter-rule-title">${title}</span>
+			<details class="rule-card" data-rule-index="${index}">
+				<summary class="rule-card-summary">
+					<span class="rule-card-identity">
+						${icon ? `<ha-icon class="rule-card-icon" icon="${icon}" style="color:${iconColor}"></ha-icon>` : ""}
+						<span class="rule-card-title">${title}</span>
 					</span>
-					<span class="filter-rule-actions">
-						<span class="filter-type filter-type-${action}">${actionLabel}</span>
-						<button class="filter-remove" data-filter-remove="${index}" type="button" title="Remove filter"><ha-icon icon="mdi:delete-outline"></ha-icon></button>
-						<span class="filter-toggle-icons" aria-hidden="true">
-							<ha-icon class="filter-toggle-down" icon="mdi:chevron-down"></ha-icon>
-							<ha-icon class="filter-toggle-up" icon="mdi:chevron-up"></ha-icon>
+					<span class="rule-card-actions">
+						<span class="rule-type rule-type-${action}">${actionLabel}</span>
+						<button class="rule-remove" data-rule-remove="${index}" type="button" title="Remove rule"><ha-icon icon="mdi:delete-outline"></ha-icon></button>
+						<span class="rule-toggle-icons" aria-hidden="true">
+							<ha-icon class="rule-toggle-down" icon="mdi:chevron-down"></ha-icon>
+							<ha-icon class="rule-toggle-up" icon="mdi:chevron-up"></ha-icon>
 						</span>
 					</span>
 				</summary>
-				<div class="filter-rule-content">
-				<div class="filter-grid">
+				<div class="rule-card-content">
+				<div class="rule-grid">
 					<div class="field">
 						<span>Action</span>
-						<select data-filter-key="action">
+						<select data-rule-key="action">
 							<option value="include"${action === "include" ? " selected" : ""}>Include</option>
 							<option value="exclude"${action === "exclude" ? " selected" : ""}>Exclude</option>
 						</select>
 					</div>
 					<div class="field">
 						<span>Field</span>
-						<select data-filter-key="field">
+						<select data-rule-key="field">
 							<option value="summary"${field === "summary" ? " selected" : ""}>Title</option>
 							<option value="description"${field === "description" ? " selected" : ""}>Description</option>
 							<option value="location"${field === "location" ? " selected" : ""}>Location</option>
@@ -1449,7 +1381,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 					</div>
 					<div class="field">
 						<span>Match</span>
-						<select data-filter-key="operator">
+						<select data-rule-key="operator">
 							<option value="contains"${operator === "contains" ? " selected" : ""}>Contains</option>
 							<option value="equals"${operator === "equals" ? " selected" : ""}>Equals</option>
 							<option value="starts_with"${operator === "starts_with" ? " selected" : ""}>Starts with</option>
@@ -1460,21 +1392,21 @@ class CalendarEventsCardEditor extends HTMLElement {
 				</div>
 				<label>
 					Value
-					<input data-filter-key="value" type="text" value="${value}" placeholder="Text to match">
+					<input data-rule-key="value" type="text" value="${value}" placeholder="Text to match">
 				</label>
 				<label>
 					Label
-					<input data-filter-key="label" type="text" value="${label}" placeholder="Optional display label">
+					<input data-rule-key="label" type="text" value="${label}" placeholder="Optional display label">
 				</label>
-				<div class="filter-appearance${action === "exclude" ? " hidden" : ""}">
-					<ha-form class="filter-appearance-form" data-filter-form="${index}"></ha-form>
-					<div class="filter-color-options">
+				<div class="rule-appearance${action === "exclude" ? " hidden" : ""}">
+					<ha-form class="rule-appearance-form" data-rule-form="${index}"></ha-form>
+					<div class="rule-color-options">
 						<label class="compact-option">
-							<ha-switch data-filter-option="show_icon_background_color" ${rule.show_icon_background_color !== false ? "checked" : ""}></ha-switch>
+							<ha-switch data-rule-option="show_icon_background_color" ${rule.show_icon_background_color !== false ? "checked" : ""}></ha-switch>
 							<span>Icon background color</span>
 						</label>
 						<label class="compact-option">
-							<ha-switch data-filter-option="show_background_color" ${rule.show_background_color !== false ? "checked" : ""}></ha-switch>
+							<ha-switch data-rule-option="show_background_color" ${rule.show_background_color !== false ? "checked" : ""}></ha-switch>
 							<span>Card background color</span>
 						</label>
 					</div>
@@ -1486,6 +1418,22 @@ class CalendarEventsCardEditor extends HTMLElement {
 		return /^mdi:[a-z0-9-]+$/i.test(value) ? value : fallback;
 	}
 
+	_ruleIconColor(rule) {
+		if ((rule?.action || "include") === "exclude") {
+			return "#64748b";
+		}
+
+		const color = String(rule?.color || "").trim();
+		if (!color) {
+			return "var(--secondary-text-color)";
+		}
+
+		return EventSpotlightCard.prototype._resolveUiColor.call(
+			{ _safeCustomColor: EventSpotlightCard.prototype._safeCustomColor },
+			color,
+		);
+	}
+
 	_escapeAttribute(value) {
 		return String(value)
 			.replaceAll("&", "&amp;")
@@ -1495,10 +1443,10 @@ class CalendarEventsCardEditor extends HTMLElement {
 	}
 
 	_render() {
-		const icons = CalendarEventsCardEditor.SECTION_ICONS;
+		const icons = EventSpotlightCardEditor.SECTION_ICONS;
 		const calendarSettingsRows = this._calendarSettingsRows();
-		const filterBlocks = (this._config.filters || [])
-			.map((rule, index) => this._filterRow(rule, index))
+		const ruleBlocks = (this._config.rules || [])
+			.map((rule, index) => this._ruleRow(rule, index))
 			.join("");
 
 		this.innerHTML = `
@@ -1691,12 +1639,12 @@ class CalendarEventsCardEditor extends HTMLElement {
 					color: var(--primary-text-color);
 				}
 
-				.filter-list {
+				.rule-list {
 					display: grid;
 					gap: 12px;
 				}
 
-				.filter-empty {
+				.rule-empty {
 					padding: 14px;
 					border: 1px dashed var(--divider-color);
 					border-radius: 10px;
@@ -1705,18 +1653,18 @@ class CalendarEventsCardEditor extends HTMLElement {
 					text-align: center;
 				}
 
-				.filter-rule { overflow: hidden; border: 1px solid var(--divider-color); border-radius: 10px; background: var(--secondary-background-color); }
-				.filter-rule-summary { display:flex; align-items:center; gap:12px; padding:10px 12px; list-style:none; cursor:pointer; }
-				.filter-rule-summary::-webkit-details-marker, .filter-rule-summary::after { display:none; }
-				.filter-rule[open] .filter-rule-summary { border-bottom:1px solid var(--divider-color); }
-				.filter-rule-identity { display:flex; align-items:center; gap:9px; min-width:0; flex:1 1 auto; }
-				.filter-rule-actions { display:flex; align-items:center; gap:8px; margin-left:auto; justify-content:flex-end; flex:0 0 auto; }
-				.filter-rule-icon { --mdc-icon-size:20px; color:var(--secondary-text-color); flex-shrink:0; }
-				.filter-rule-title { overflow:hidden; color:var(--primary-text-color); font-size:14px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
-				.filter-type { padding:3px 7px; border-radius:999px; font-size:11px; font-weight:600; }
-				.filter-type-include { color:var(--success-color,#43a047); background:color-mix(in srgb,var(--success-color,#43a047) 14%,transparent); }
-				.filter-type-exclude { color:var(--error-color,#f44336); background:color-mix(in srgb,var(--error-color,#f44336) 14%,transparent); }
-				.filter-remove {
+				.rule-card { overflow: hidden; border: 1px solid var(--divider-color); border-radius: 10px; background: var(--secondary-background-color); }
+				.rule-card-summary { display:flex; align-items:center; gap:12px; padding:10px 12px; list-style:none; cursor:pointer; }
+				.rule-card-summary::-webkit-details-marker, .rule-card-summary::after { display:none; }
+				.rule-card[open] .rule-card-summary { border-bottom:1px solid var(--divider-color); }
+				.rule-card-identity { display:flex; align-items:center; gap:9px; min-width:0; flex:1 1 auto; }
+				.rule-card-actions { display:flex; align-items:center; gap:8px; margin-left:auto; justify-content:flex-end; flex:0 0 auto; }
+				.rule-card-icon { --mdc-icon-size:20px; color:var(--secondary-text-color); flex-shrink:0; }
+				.rule-card-title { overflow:hidden; color:var(--primary-text-color); font-size:14px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
+				.rule-type { padding:3px 7px; border-radius:999px; font-size:11px; font-weight:600; }
+				.rule-type-include { color:var(--success-color,#43a047); background:color-mix(in srgb,var(--success-color,#43a047) 14%,transparent); }
+				.rule-type-exclude { color:var(--error-color,#f44336); background:color-mix(in srgb,var(--error-color,#f44336) 14%,transparent); }
+				.rule-remove {
 					width: 32px;
 					min-height: 32px;
 					padding: 0;
@@ -1725,24 +1673,24 @@ class CalendarEventsCardEditor extends HTMLElement {
 					color: var(--secondary-text-color);
 					background: transparent;
 				}
-				.filter-toggle-icons { display:flex; align-items:center; justify-content:center; width:24px; color:var(--secondary-text-color); }
-				.filter-toggle-icons ha-icon { --mdc-icon-size:20px; }
-				.filter-toggle-up { display:none; }
-				.filter-rule[open] .filter-toggle-down { display:none; }
-				.filter-rule[open] .filter-toggle-up { display:block; }
-				.filter-rule-content { display:grid; gap:12px; padding:12px; }
-				.filter-grid {
+				.rule-toggle-icons { display:flex; align-items:center; justify-content:center; width:24px; color:var(--secondary-text-color); }
+				.rule-toggle-icons ha-icon { --mdc-icon-size:20px; }
+				.rule-toggle-up { display:none; }
+				.rule-card[open] .rule-toggle-down { display:none; }
+				.rule-card[open] .rule-toggle-up { display:block; }
+				.rule-card-content { display:grid; gap:12px; padding:12px; }
+				.rule-grid {
 					display: grid;
 					grid-template-columns: repeat(3, minmax(0, 1fr));
 					gap: 10px;
 				}
 
-				.filter-appearance-form {
+				.rule-appearance-form {
 					display: block;
 					width: 100%;
 				}
 
-				.filter-color-options {
+				.rule-color-options {
 					display: grid;
 					grid-template-columns: repeat(2, minmax(0, 1fr));
 					gap: 12px;
@@ -1758,13 +1706,13 @@ class CalendarEventsCardEditor extends HTMLElement {
 					font-size: 12px;
 				}
 
-				.filter-icon-field,
-				.filter-icon-selector {
+				.rule-icon-field,
+				.rule-icon-selector {
 					min-width: 0;
 					max-width: 100%;
 				}
 
-				.filter-rule select {
+				.rule-card select {
 					box-sizing: border-box;
 					width: 100%;
 					min-height: 42px;
@@ -1776,8 +1724,8 @@ class CalendarEventsCardEditor extends HTMLElement {
 					font: inherit;
 				}
 
-				.filter-remove,
-				.filter-add {
+				.rule-remove,
+				.rule-add {
 					display: flex;
 					align-items: center;
 					justify-content: center;
@@ -1791,17 +1739,17 @@ class CalendarEventsCardEditor extends HTMLElement {
 					cursor: pointer;
 				}
 
-				.filter-remove {
+				.rule-remove {
 					width: 38px;
 					padding: 0;
 					color: var(--secondary-text-color);
 				}
 
-				.filter-add {
+				.rule-add {
 					justify-self: start;
 					color: var(--primary-color);
 				}
-				.filter-remove {
+				.rule-remove {
 					width: 32px;
 					min-height: 32px;
 					padding: 0;
@@ -1835,8 +1783,8 @@ class CalendarEventsCardEditor extends HTMLElement {
 
 				@media (max-width: 600px) {
 					.grid,
-					.filter-grid,
-					.filter-color-options,
+					.rule-grid,
+					.rule-color-options,
 					.calendar-setting {
 						grid-template-columns: 1fr;
 					}
@@ -1867,7 +1815,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 					<div class="section-content">
 						<label>
 							Card name
-							<input data-config="name" type="text" placeholder="Calendar events">
+							<input data-config="name" type="text" placeholder="Event spotlight">
 						</label>
 						<div class="grid">
 							<label>
@@ -1898,15 +1846,15 @@ class CalendarEventsCardEditor extends HTMLElement {
 					</div>
 				</details>
 
-				<details class="section" data-section="filters"${this._sectionState.filters ? " open" : ""}>
-					${this._sectionSummary(icons.filters, "Filters")}
+				<details class="section" data-section="rules"${this._sectionState.rules ? " open" : ""}>
+					${this._sectionSummary(icons.rules, "Event rules")}
 					<div class="section-content">
-						<div class="filter-list">
-							${filterBlocks || `<div class="filter-empty">No filters configured.</div>`}
+						<div class="rule-list">
+							${ruleBlocks || `<div class="rule-empty">No rules configured.</div>`}
 						</div>
-						<button class="filter-add" id="add-filter" type="button">
+						<button class="rule-add" id="add-rule" type="button">
 							<ha-icon icon="mdi:plus"></ha-icon>
-							Add filter
+							Add rule
 						</button>
 					</div>
 				</details>
@@ -1917,7 +1865,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 		this._initializeInputs();
 		this._initializeSwitches();
 		this._initializeAppearanceOrder();
-		this._initializeFilters();
+		this._initializeRules();
 		this._initializeSectionState();
 	}
 
@@ -1946,10 +1894,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 				});
 
 				if (!exists) {
-					calendars.push({
-						entity: entityId,
-						event_mode: "all",
-					});
+					calendars.push({ entity: entityId });
 					this._setCalendarConfig(calendars, true);
 				} else {
 					addSelector.value = "";
@@ -1957,28 +1902,6 @@ class CalendarEventsCardEditor extends HTMLElement {
 			});
 		}
 
-		this.querySelectorAll("[data-calendar-mode]").forEach((select) => {
-			select.addEventListener("change", () => {
-				const row = select.closest("[data-calendar-entity]");
-				const entityId = row?.dataset.calendarEntity;
-
-				if (!entityId) {
-					return;
-				}
-
-				const calendars = (this._config.calendars || []).map((calendar) => {
-					const item = typeof calendar === "string" ? { entity: calendar } : { ...calendar };
-
-					if (item.entity === entityId) {
-						item.event_mode = select.value;
-					}
-
-					return item;
-				});
-
-				this._setCalendarConfig(calendars, false);
-			});
-		});
 
 		this.querySelectorAll("[data-calendar-remove]").forEach((button) => {
 			button.addEventListener("click", () => {
@@ -2047,12 +1970,12 @@ class CalendarEventsCardEditor extends HTMLElement {
 
 	_setDisplayOrder(order) {
 		const config = { ...this._config, display_order: order };
-		if (JSON.stringify(order) === JSON.stringify(CalendarEventsCard.FIELD_DEFAULTS.display_order)) delete config.display_order;
+		if (JSON.stringify(order) === JSON.stringify(EventSpotlightCard.FIELD_DEFAULTS.display_order)) delete config.display_order;
 		this._config = config;
 		this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: { ...config } }, bubbles: true, composed: true }));
 	}
 
-	_initializeFilters() {
+	_initializeRules() {
 		const appearanceSchema = [
 			{
 				type: "grid",
@@ -2073,9 +1996,9 @@ class CalendarEventsCardEditor extends HTMLElement {
 			},
 		];
 
-		this.querySelectorAll("[data-filter-form]").forEach((form) => {
-			const index = Number(form.dataset.filterForm);
-			const rule = (this._config.filters || [])[index] || {};
+		this.querySelectorAll("[data-rule-form]").forEach((form) => {
+			const index = Number(form.dataset.ruleForm);
+			const rule = (this._config.rules || [])[index] || {};
 
 			form.hass = this._hass;
 			form.data = {
@@ -2087,8 +2010,8 @@ class CalendarEventsCardEditor extends HTMLElement {
 			form.computeHelper = () => "";
 			form.addEventListener("value-changed", (event) => {
 				event.stopPropagation();
-				const filters = [...(this._config.filters || [])];
-				const current = { ...(filters[index] || {}) };
+				const rules = [...(this._config.rules || [])];
+				const current = { ...(rules[index] || {}) };
 				const data = event.detail?.value || {};
 
 				if (data.icon) {
@@ -2103,21 +2026,21 @@ class CalendarEventsCardEditor extends HTMLElement {
 					delete current.color;
 				}
 
-				filters[index] = current;
-				this._config = { ...this._config, filters };
-				const row = form.closest("[data-filter-index]");
-				const desiredIcon = current.icon || ((current.action || "include") === "exclude" ? "mdi:filter-remove-outline" : "");
-				this._updateFilterTitleIcon(row, desiredIcon, this._filterIconColor(current));
-				this._setFilters(filters, false);
+				rules[index] = current;
+				this._config = { ...this._config, rules };
+				const row = form.closest("[data-rule-index]");
+				const desiredIcon = current.icon || ((current.action || "include") === "exclude" ? "mdi:rule-remove-outline" : "");
+				this._updateRuleTitleIcon(row, desiredIcon, this._ruleIconColor(current));
+				this._setRules(rules, false);
 			});
 		});
-		this.querySelectorAll("[data-filter-option]").forEach((toggle) => {
+		this.querySelectorAll("[data-rule-option]").forEach((toggle) => {
 			toggle.addEventListener("change", () => {
-				const row = toggle.closest("[data-filter-index]");
-				const index = Number(row?.dataset.filterIndex);
-				const key = toggle.dataset.filterOption;
-				const filters = [...(this._config.filters || [])];
-				const current = { ...(filters[index] || {}) };
+				const row = toggle.closest("[data-rule-index]");
+				const index = Number(row?.dataset.ruleIndex);
+				const key = toggle.dataset.ruleOption;
+				const rules = [...(this._config.rules || [])];
+				const current = { ...(rules[index] || {}) };
 
 				if (toggle.checked) {
 					delete current[key];
@@ -2125,14 +2048,20 @@ class CalendarEventsCardEditor extends HTMLElement {
 					current[key] = false;
 				}
 
-				filters[index] = current;
-				this._setFilters(filters, false);
+				rules[index] = current;
+				this._setRules(rules, false);
 			});
 		});
 
-		this.querySelector("#add-filter")?.addEventListener("click", () => {
-			const filters = [
-				...(this._config.filters || []),
+		const addRuleButton = this.querySelector("#add-rule");
+
+		if (addRuleButton) {
+			addRuleButton.addEventListener("click", (event) => {
+				event.preventDefault();
+				event.stopPropagation();
+
+				const rules = [
+				...(this._config.rules || []),
 				{
 					action: "include",
 					field: "summary",
@@ -2141,37 +2070,28 @@ class CalendarEventsCardEditor extends HTMLElement {
 				},
 			];
 
-			this._sectionState.filters = true;
-			this._setFilters(filters, true);
-		});
+				this._sectionState.rules = true;
+				this._setRules(rules, true);
+			});
+		}
 
-		this.querySelectorAll("[data-filter-remove]").forEach((button) => {
+		this.querySelectorAll("[data-rule-remove]").forEach((button) => {
 			button.addEventListener("click", (event) => {
 				event.preventDefault(); event.stopPropagation();
-				const index = Number(button.dataset.filterRemove);
-				const filters = (this._config.filters || []).filter(
-					(_, filterIndex) => filterIndex !== index,
+				const index = Number(button.dataset.ruleRemove);
+				const rules = (this._config.rules || []).filter(
+					(_, ruleIndex) => ruleIndex !== index,
 				);
 
-				this._sectionState.filters = true;
-				this._setFilters(filters, true);
+				this._sectionState.rules = true;
+				this._setRules(rules, true);
 			});
 		});
 
-		this.querySelectorAll("[data-filter-key]").forEach((element) => {
-			if (element.tagName === "HA-SELECTOR") {
-				element.hass = this._hass;
-				element.selector = { icon: {} };
-				element.value = element.dataset.filterValue || "";
-				element.addEventListener("value-changed", (event) => {
-					this._updateFilterElement(element, event.detail?.value ?? "", false);
-				});
-				return;
-			}
-
+		this.querySelectorAll("[data-rule-key]").forEach((element) => {
 			const eventName = element.tagName === "SELECT" ? "change" : "input";
 			element.addEventListener(eventName, () => {
-				this._updateFilterElement(element, element.value, false);
+				this._updateRuleElement(element, element.value, false);
 			});
 		});
 
@@ -2188,40 +2108,40 @@ class CalendarEventsCardEditor extends HTMLElement {
 		});
 	}
 
-	_updateFilterVisual(row, key, value) {
+	_updateRuleVisual(row, key, value) {
 		if (!row) return;
-		const index = Number(row.dataset.filterIndex);
-		const current = this._config.filters?.[index] || {};
+		const index = Number(row.dataset.ruleIndex);
+		const current = this._config.rules?.[index] || {};
 
 		if (key === "label" || key === "value") {
-			const title = row.querySelector(".filter-rule-title");
+			const title = row.querySelector(".rule-card-title");
 			const label = key === "label" ? value : current.label;
-			const filterValue = key === "value" ? value : current.value;
+			const ruleValue = key === "value" ? value : current.value;
 			if (title) {
-				title.textContent = String(label || "").trim() || String(filterValue || "").trim() || `Filter ${index + 1}`;
+				title.textContent = String(label || "").trim() || String(ruleValue || "").trim() || `Rule ${index + 1}`;
 			}
 		}
 
 		if (key === "action") {
 			const isExclude = value === "exclude";
-			const badge = row.querySelector(".filter-type");
-			const appearance = row.querySelector(".filter-appearance");
+			const badge = row.querySelector(".rule-type");
+			const appearance = row.querySelector(".rule-appearance");
 			if (badge) {
 				badge.textContent = isExclude ? "Exclude" : "Include";
-				badge.className = `filter-type filter-type-${isExclude ? "exclude" : "include"}`;
+				badge.className = `rule-type rule-type-${isExclude ? "exclude" : "include"}`;
 			}
 			appearance?.classList.toggle("hidden", isExclude);
-			this._updateFilterTitleIcon(
+			this._updateRuleTitleIcon(
 				row,
-				current.icon || (isExclude ? "mdi:filter-remove-outline" : ""),
-				this._filterIconColor({ ...current, action: value }),
+				current.icon || (isExclude ? "mdi:rule-remove-outline" : ""),
+				this._ruleIconColor({ ...current, action: value }),
 			);
 		}
 	}
 
-	_updateFilterTitleIcon(row, iconValue, colorValue) {
-		const identity = row?.querySelector(".filter-rule-identity");
-		let icon = row?.querySelector(".filter-rule-icon");
+	_updateRuleTitleIcon(row, iconValue, colorValue) {
+		const identity = row?.querySelector(".rule-card-identity");
+		let icon = row?.querySelector(".rule-card-icon");
 		const desiredIcon = iconValue ? this._safeIcon(iconValue, "") : "";
 		if (!desiredIcon) {
 			icon?.remove();
@@ -2229,57 +2149,57 @@ class CalendarEventsCardEditor extends HTMLElement {
 		}
 		if (!icon && identity) {
 			icon = document.createElement("ha-icon");
-			icon.className = "filter-rule-icon";
+			icon.className = "rule-card-icon";
 			identity.prepend(icon);
 		}
 		icon?.setAttribute("icon", desiredIcon);
 		if (icon) icon.style.color = colorValue || "var(--secondary-text-color)";
 	}
 
-	_updateFilterElement(element, value, rerender) {
-		const row = element.closest("[data-filter-index]");
-		const index = Number(row?.dataset.filterIndex);
-		const key = element.dataset.filterKey;
+	_updateRuleElement(element, value, rerender) {
+		const row = element.closest("[data-rule-index]");
+		const index = Number(row?.dataset.ruleIndex);
+		const key = element.dataset.ruleKey;
 
 		if (!Number.isInteger(index) || !key) {
 			return;
 		}
 
-		this._updateFilterVisual(row, key, value);
+		this._updateRuleVisual(row, key, value);
 
-		const filters = (this._config.filters || []).map((rule, filterIndex) =>
-			filterIndex === index
+		const rules = (this._config.rules || []).map((rule, ruleIndex) =>
+			ruleIndex === index
 				? { ...rule, [key]: value }
 				: rule,
 		);
 
-		if (this._filterInputTimer) {
-			clearTimeout(this._filterInputTimer);
+		if (this._ruleInputTimer) {
+			clearTimeout(this._ruleInputTimer);
 		}
 
 		if (rerender) {
-			this._setFilters(filters, true);
+			this._setRules(rules, true);
 			return;
 		}
 
 		this._config = {
 			...this._config,
-			filters,
+			rules,
 		};
 
-		this._filterInputTimer = setTimeout(() => {
-			this._setFilters(this._config.filters || [], false);
+		this._ruleInputTimer = setTimeout(() => {
+			this._setRules(this._config.rules || [], false);
 		}, 200);
 	}
 
-	_setFilters(filters, rerender = true) {
+	_setRules(rules, rerender = true) {
 		const config = {
 			...this._config,
-			filters,
+			rules,
 		};
 
-		if (!filters.length) {
-			delete config.filters;
+		if (!rules.length) {
+			delete config.rules;
 		}
 
 		this._config = config;
@@ -2294,7 +2214,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 		);
 
 		if (rerender) {
-			this._sectionState.filters = true;
+			this._sectionState.rules = true;
 			this._render();
 			this._updateValues();
 		}
@@ -2365,7 +2285,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 		this.querySelectorAll("[data-config]").forEach((e) => {
 			const key = e.dataset.config,
 				value =
-					this._config[key] ?? CalendarEventsCard.FIELD_DEFAULTS[key];
+					this._config[key] ?? EventSpotlightCard.FIELD_DEFAULTS[key];
 			if (e.tagName === "HA-SELECTOR") {
 				e.hass = this._hass;
 
@@ -2379,7 +2299,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 			} else if (e.tagName === "HA-SWITCH") {
 				e.checked = Boolean(value);
 			}
-			else if (CalendarEventsCardEditor._getDeepActiveElement() !== e)
+			else if (document.activeElement !== e)
 				e.value = value ?? "";
 		});
 	}
@@ -2408,7 +2328,7 @@ class CalendarEventsCardEditor extends HTMLElement {
 		}
 		else value = target.value;
 		const config = { ...this._config, [key]: value };
-		const defaultValue = CalendarEventsCard.FIELD_DEFAULTS[key];
+		const defaultValue = EventSpotlightCard.FIELD_DEFAULTS[key];
 		if (
 			value === "" ||
 			value === undefined ||
@@ -2433,24 +2353,24 @@ class CalendarEventsCardEditor extends HTMLElement {
 /* ---------------------------------------------------------------------- */
 /*  Registration                                                          */
 /* ---------------------------------------------------------------------- */
-if (!customElements.get("calendar-events-card"))
-	customElements.define("calendar-events-card", CalendarEventsCard);
+if (!customElements.get("event-spotlight-card"))
+	customElements.define("event-spotlight-card", EventSpotlightCard);
 
-if (!customElements.get("calendar-events-card-editor"))
+if (!customElements.get("event-spotlight-card-editor"))
 	customElements.define(
-		"calendar-events-card-editor",
-		CalendarEventsCardEditor,
+		"event-spotlight-card-editor",
+		EventSpotlightCardEditor,
 	);
 
 window.customCards = window.customCards || [];
 
 window.customCards.push({
-	type: "calendar-events-card",
-	name: "Calendar Events Card",
+	type: "event-spotlight-card",
+	name: "Event Spotlight Card",
 	description:
-		"Display upcoming calendar events, appointments, schedules and reminders, trash, birthday, anniversary from Home Assistant calendars.",
+		"Highlight the calendar events that matter to you, from waste collections and birthdays to medical appointments, anniversaries, reminders, trash and more.",
 	preview: true,
-	documentationURL: "https://github.com/KroFR/calendar-events-ha-card",
+	documentationURL: "https://github.com/KroFR/event-spotlight-ha-card",
 
 	getEntitySuggestion: (hass, entityId) => {
 		if (!entityId.startsWith("calendar.")) {
@@ -2458,11 +2378,11 @@ window.customCards.push({
 		}
 		return {
 			config: {
-				type: "custom:calendar-events-card",
+				type: "custom:event-spotlight-card",
 				calendars: [
 					{
 						entity: entityId,
-						event_mode: "all",
+						
 					},
 				],
 			},
@@ -2470,4 +2390,4 @@ window.customCards.push({
 	},
 });
 
-console.info(`%c 📅 CALENDAR-EVENTS-CARD %c v${CARD_VERSION} `, "color:white;background:#0288d1;font-weight:700;", "color:#0288d1;background:white;font-weight:700;");
+console.info(`%c 📅 EVENT-SPOTLIGHT-CARD %c v${CARD_VERSION} `, "color:white;background:#0288d1;font-weight:700;", "color:#0288d1;background:white;font-weight:700;");
