@@ -1,5 +1,5 @@
 * text=auto
 *.js text eol=lf
-dist/calendar-events-card.js linguist-vendored=false
-dist/calendar-events-card.js linguist-generated=false
-dist/calendar-events-card.js linguist-detectable=true
+dist/event-spotlight-card.js linguist-vendored=false
+dist/event-spotlight-card.js linguist-generated=false
+dist/event-spotlight-card.js linguist-detectable=true
