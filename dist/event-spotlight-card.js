@@ -71,7 +71,6 @@ class EventSpotlightCard extends HTMLElement {
 				? [
 						{
 							entity: calendar,
-							
 						},
 					]
 				: [],
@@ -103,15 +102,18 @@ class EventSpotlightCard extends HTMLElement {
 		);
 		this._config = { ...config, calendars };
 		this._scheduleUpdate();
-		if (this._hass) this._loadEvents();
 	}
 
 	set hass(hass) {
+		const initialHass = !this._hass;
 		this._hass = hass;
 		if (!this.shadowRoot) this.attachShadow({ mode: "open" });
-		this._render();
-		const key = JSON.stringify([this._calendarIds(), this._config?.days, this._config?.rules]);
-		if (key !== this._loadKey) this._loadEvents();
+		const key = JSON.stringify([this._calendarIds(), this._config?.days, this._rulesLoadKey()]);
+		if (key !== this._loadKey) {
+			this._loadEvents();
+		} else if (initialHass) {
+			this._render();
+		}
 	}
 
 	getCardSize() {
@@ -145,6 +147,10 @@ class EventSpotlightCard extends HTMLElement {
 
 	_calendarIds() {
 		return (this._config?.calendars || []).map((item) => item.entity);
+	}
+
+	_rulesLoadKey() {
+		return (this._config?.rules || []).map(({ rule_name, ...rule }) => rule);
 	}
 
 	_lang() {
@@ -238,24 +244,58 @@ class EventSpotlightCard extends HTMLElement {
 			calendar_name: calendarName,
 			start_date: this._date(event.start),
 		};
-		const match = (this._config.rules || []).find(
-			(rule) =>
-				(rule.action || "include") === "include" &&
-				this._ruleMatches(base, rule),
-		);
+		const matches = (this._config.rules || [])
+			.map((rule, index) => ({ rule, index }))
+			.filter(
+				({ rule }) =>
+					(rule.action || "include") === "include" &&
+					this._ruleMatches(base, rule),
+			);
+		const matchedRules = matches.map(({ rule }) => rule);
+		const primaryMatch = matches.at(-1);
+
+		const appearance = matchedRules.reduce((result, rule) => {
+			const next = { ...result };
+			const label = String(rule.label || "").trim();
+
+			if (label) {
+				next.label = label;
+			}
+			if (rule.icon) {
+				next.icon = rule.icon;
+			}
+			if (rule.color) {
+				next.color = rule.color;
+			}
+			if (rule.show_icon_background_color !== undefined) {
+				next.show_icon_background_color = rule.show_icon_background_color;
+			}
+			if (rule.show_background_color !== undefined) {
+				next.show_background_color = rule.show_background_color;
+			}
+
+			return next;
+		}, {});
+
 		return {
 			...base,
-			label: String(match?.label || "").trim() || event.summary || calendarName,
-			icon: this._safeIcon(match?.icon || calendar.icon || state?.attributes?.icon),
-			color: this._resolveUiColor(match?.color),
-			show_icon_background_color: match?.show_icon_background_color !== false,
-			show_background_color: match?.show_background_color !== false,
+			label: appearance.label || event.summary || calendarName,
+			icon: this._safeIcon(
+				appearance.icon || calendar.icon || state?.attributes?.icon,
+			),
+			color: this._resolveUiColor(appearance.color),
+			show_icon_background_color:
+				appearance.show_icon_background_color !== false,
+			show_background_color:
+				appearance.show_background_color !== false,
+			primary_rule_index: primaryMatch?.index ?? -1,
+			show_first_match_only: primaryMatch?.rule?.show_first_match_only === true,
 		};
 	}
 
 	_safeIcon(icon, fallback = "mdi:calendar") {
 		const value = String(icon || "").trim();
-		return /^mdi:[a-z0-9-]+$/i.test(value) ? value : fallback;
+		return /^(?:mdi|hacs|advanced):[a-z0-9_-]+$/i.test(value) ? value : fallback;
 	}
 
 	_safeCustomColor(color) {
@@ -376,11 +416,22 @@ class EventSpotlightCard extends HTMLElement {
 				const events = response?.[calendar.entity]?.events || [];
 				return events.map((event) => this._decorate(event, calendar));
 			});
-			this._events = responses
+			const sortedEvents = responses
 				.flat()
 				.filter((event) => this._passes(event))
 				.sort((a, b) => a.start_date - b.start_date);
-			this._loadKey = JSON.stringify([this._calendarIds(), this._config.days, this._config.rules]);
+			const firstMatchRules = new Set();
+			this._events = sortedEvents.filter((event) => {
+				if (!event.show_first_match_only || event.primary_rule_index < 0) {
+					return true;
+				}
+				if (firstMatchRules.has(event.primary_rule_index)) {
+					return false;
+				}
+				firstMatchRules.add(event.primary_rule_index);
+				return true;
+			});
+			this._loadKey = JSON.stringify([this._calendarIds(), this._config.days, this._rulesLoadKey()]);
 		} catch (error) {
 			console.error(
 				"Event Spotlight Card: failed to load spotlight events",
@@ -1316,6 +1367,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 		super();
 		this._rendered = false;
 		this._ruleInputTimer = null;
+		this._pendingOpenRuleIndex = null;
 		this._sectionState = {
 			calendars: false,
 			general: false,
@@ -1325,25 +1377,39 @@ class EventSpotlightCardEditor extends HTMLElement {
 	}
 
 	setConfig(config) {
-		this._config = {
-			...config,
-		};
+		const previousConfig = this._config;
+		const nextConfig = { ...config };
+		if (Array.isArray(nextConfig.rules)) {
+			nextConfig.rules = this._orderRules(nextConfig.rules);
+		}
+		const structureChanged =
+			!previousConfig ||
+			(previousConfig.calendars || []).length !== (nextConfig.calendars || []).length ||
+			(previousConfig.rules || []).length !== (nextConfig.rules || []).length ||
+			previousConfig.layout !== nextConfig.layout;
 
-		if (!this._rendered) {
+		this._config = nextConfig;
+
+		if (!this._rendered || structureChanged) {
 			this._render();
 			this._rendered = true;
+		} else {
+			this._syncRuleEditor();
 		}
 
 		this._updateValues();
 	}
-
 	set hass(hass) {
 		this._hass = hass;
 		if (!this._rendered && this._config) {
 			this._render();
 			this._rendered = true;
+			this._updateValues();
+			return;
 		}
-		this._updateValues();
+		this.querySelectorAll("ha-selector, ha-form").forEach((element) => {
+			element.hass = hass;
+		});
 	}
 
 	connectedCallback() {
@@ -1411,19 +1477,24 @@ class EventSpotlightCardEditor extends HTMLElement {
 		const action = rule.action || "include";
 		const field = rule.field || "summary";
 		const operator = rule.operator || "contains";
+		const rawRuleName = String(rule.rule_name || "").trim();
 		const rawLabel = String(rule.label || "").trim();
 		const rawValue = String(rule.value || "").trim();
+		const ruleName = this._escapeAttribute(rawRuleName);
 		const label = this._escapeAttribute(rawLabel);
 		const value = this._escapeAttribute(rawValue);
-		const title = this._escapeAttribute(rawLabel || rawValue || `Rule ${index + 1}`);
-		const rawIcon = rule.icon || (action === "exclude" ? "mdi:rule-remove-outline" : "");
-		const icon = rawIcon ? this._escapeAttribute(this._safeIcon(rawIcon, "")) : "";
+		const title = this._escapeAttribute(rawRuleName || rawValue || `Rule ${index + 1}`);
+		const rawIcon = rule.icon || "mdi:calendar";
+		const icon = action === "exclude"
+			? ""
+			: this._escapeAttribute(this._safeIcon(rawIcon, "mdi:calendar"));
 		const iconColor = this._escapeAttribute(this._ruleIconColor(rule));
 		const actionLabel = action === "exclude" ? "Exclude" : "Include";
 
 		return `
-			<details class="rule-card" data-rule-index="${index}">
+			<details class="rule-card" data-rule-index="${index}" draggable="false">
 				<summary class="rule-card-summary">
+					<ha-icon class="rule-drag-handle${action === "exclude" ? " exclude-lock" : ""}" icon="${action === "exclude" ? "mdi:lock-outline" : "mdi:drag"}" draggable="true"></ha-icon>
 					<span class="rule-card-identity">
 						${icon ? `<ha-icon class="rule-card-icon" icon="${icon}" style="color:${iconColor}"></ha-icon>` : ""}
 						<span class="rule-card-title">${title}</span>
@@ -1438,6 +1509,10 @@ class EventSpotlightCardEditor extends HTMLElement {
 					</span>
 				</summary>
 				<div class="rule-card-content">
+				<label>
+					Rule name
+					<input data-rule-key="rule_name" type="text" value="${ruleName}" placeholder="Optional rule title">
+				</label>
 				<div class="rule-grid">
 					<div class="field">
 						<span>Action</span>
@@ -1470,12 +1545,19 @@ class EventSpotlightCardEditor extends HTMLElement {
 					Value
 					<input data-rule-key="value" type="text" value="${value}" placeholder="Text to match">
 				</label>
+				${action === "exclude" ? "" : `
 				<label>
 					Label
 					<input data-rule-key="label" type="text" value="${label}" placeholder="Optional display label">
-				</label>
+				</label>`}
 				<div class="rule-appearance${action === "exclude" ? " hidden" : ""}">
 					<ha-form class="rule-appearance-form" data-rule-form="${index}"></ha-form>
+					<div class="rule-display-options">
+						<label class="compact-option">
+							<ha-switch data-rule-option="show_first_match_only" ${rule.show_first_match_only === true ? "checked" : ""}></ha-switch>
+							<span>Show first matching event only</span>
+						</label>
+					</div>
 					<div class="rule-color-options">
 						<label class="compact-option">
 							<ha-switch data-rule-option="show_icon_background_color" ${rule.show_icon_background_color !== false ? "checked" : ""}></ha-switch>
@@ -1489,9 +1571,10 @@ class EventSpotlightCardEditor extends HTMLElement {
 				</div>
 			</details>`;
 	}
+
 	_safeIcon(icon, fallback = "mdi:calendar") {
 		const value = String(icon || "").trim();
-		return /^mdi:[a-z0-9-]+$/i.test(value) ? value : fallback;
+		return /^(?:mdi|hacs|advanced):[a-z0-9_-]+$/i.test(value) ? value : fallback;
 	}
 
 	_ruleIconColor(rule) {
@@ -1501,7 +1584,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 
 		const color = String(rule?.color || "").trim();
 		if (!color) {
-			return "var(--secondary-text-color)";
+			return "var(--primary-color)";
 		}
 
 		return EventSpotlightCard.prototype._resolveUiColor.call(
@@ -1516,6 +1599,13 @@ class EventSpotlightCardEditor extends HTMLElement {
 			.replaceAll('"', "&quot;")
 			.replaceAll("<", "&lt;")
 			.replaceAll(">", "&gt;");
+	}
+
+	_orderRules(rules) {
+		return [
+			...rules.filter((rule) => (rule.action || "include") === "exclude"),
+			...rules.filter((rule) => (rule.action || "include") !== "exclude"),
+		];
 	}
 
 	_render() {
@@ -1730,6 +1820,16 @@ class EventSpotlightCardEditor extends HTMLElement {
 				}
 
 				.rule-card { overflow: hidden; border: 1px solid var(--divider-color); border-radius: 10px; background: var(--secondary-background-color); }
+				.rule-card.dragging { opacity:.45; }
+				.rule-card.drag-over { border-color:var(--primary-color); }
+				.rule-drag-handle {
+					--mdc-icon-size:20px;
+					width:20px;
+					height:20px;
+					color:var(--secondary-text-color);
+					cursor:grab;
+					flex:0 0 20px;
+				}
 				.rule-card-summary { display:flex; align-items:center; gap:12px; padding:10px 12px; list-style:none; cursor:pointer; }
 				.rule-card-summary::-webkit-details-marker, .rule-card-summary::after { display:none; }
 				.rule-card[open] .rule-card-summary { border-bottom:1px solid var(--divider-color); }
@@ -1766,6 +1866,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 					width: 100%;
 				}
 
+				.rule-display-options,
 				.rule-color-options {
 					display: grid;
 					grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1943,6 +2044,11 @@ class EventSpotlightCardEditor extends HTMLElement {
 		this._initializeAppearanceOrder();
 		this._initializeRules();
 		this._initializeSectionState();
+		if (Number.isInteger(this._pendingOpenRuleIndex)) {
+			const pendingRow = this.querySelector(`[data-rule-index="${this._pendingOpenRuleIndex}"]`);
+			if (pendingRow) pendingRow.open = true;
+			this._pendingOpenRuleIndex = null;
+		}
 	}
 
 	_initializeCalendarSettings() {
@@ -1978,7 +2084,6 @@ class EventSpotlightCardEditor extends HTMLElement {
 			});
 		}
 
-
 		this.querySelectorAll("[data-calendar-remove]").forEach((button) => {
 			button.addEventListener("click", () => {
 				const row = button.closest("[data-calendar-entity]");
@@ -1997,6 +2102,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 			});
 		});
 	}
+
 	_setCalendarConfig(calendars, rerender = true) {
 		const config = {
 			...this._config,
@@ -2105,11 +2211,12 @@ class EventSpotlightCardEditor extends HTMLElement {
 				rules[index] = current;
 				this._config = { ...this._config, rules };
 				const row = form.closest("[data-rule-index]");
-				const desiredIcon = current.icon || ((current.action || "include") === "exclude" ? "mdi:rule-remove-outline" : "");
+				const desiredIcon = current.icon || ((current.action || "include") === "exclude" ? "mdi:rule-remove-outline" : "mdi:calendar");
 				this._updateRuleTitleIcon(row, desiredIcon, this._ruleIconColor(current));
 				this._setRules(rules, false);
 			});
 		});
+
 		this.querySelectorAll("[data-rule-option]").forEach((toggle) => {
 			toggle.addEventListener("change", () => {
 				const row = toggle.closest("[data-rule-index]");
@@ -2118,7 +2225,10 @@ class EventSpotlightCardEditor extends HTMLElement {
 				const rules = [...(this._config.rules || [])];
 				const current = { ...(rules[index] || {}) };
 
-				if (toggle.checked) {
+				if (key === "show_first_match_only") {
+					if (toggle.checked) current[key] = true;
+					else delete current[key];
+				} else if (toggle.checked) {
 					delete current[key];
 				} else {
 					current[key] = false;
@@ -2164,13 +2274,122 @@ class EventSpotlightCardEditor extends HTMLElement {
 			});
 		});
 
+		this._initializeRuleOrder();
+
 		this.querySelectorAll("[data-rule-key]").forEach((element) => {
+			const key = element.dataset.ruleKey;
+
+			if (key === "rule_name") {
+				element.addEventListener("input", () => {
+					this._updateRuleName(element, element.value);
+				});
+				return;
+			}
+
 			const eventName = element.tagName === "SELECT" ? "change" : "input";
 			element.addEventListener(eventName, () => {
-				this._updateRuleElement(element, element.value, false);
+				if (key === "action") {
+					this._updateRuleAction(element, element.value);
+					return;
+				}
+				this._updateRuleElement(element, element.value);
+			});
+		});
+	}
+
+	_initializeRuleOrder() {
+		const list = this.querySelector(".rule-list");
+		if (!list) return;
+
+		let draggedRow = null;
+		list.querySelectorAll(".rule-card").forEach((row) => {
+			const handle = row.querySelector(".rule-drag-handle");
+			if (!handle) return;
+
+			handle.addEventListener("dragstart", (event) => {
+				draggedRow = row;
+				row.classList.add("dragging");
+				event.dataTransfer.effectAllowed = "move";
+				event.dataTransfer.setData("text/plain", row.dataset.ruleIndex || "");
+			});
+
+			handle.addEventListener("dragend", () => {
+				if (!draggedRow) return;
+				draggedRow.classList.remove("dragging");
+				list.querySelectorAll(".drag-over").forEach((item) => item.classList.remove("drag-over"));
+				const currentRules = this._config.rules || [];
+				const ruleByIndex = new Map(currentRules.map((rule, index) => [index, rule]));
+				const ordered = [...list.querySelectorAll(".rule-card")]
+					.map((item) => ruleByIndex.get(Number(item.dataset.ruleIndex)))
+					.filter(Boolean);
+				draggedRow = null;
+				this._setRules(ordered, true);
 			});
 		});
 
+		list.querySelectorAll(".rule-card").forEach((row) => {
+			row.addEventListener("dragover", (event) => {
+				if (!draggedRow || draggedRow === row) return;
+				const draggedIndex = Number(draggedRow.dataset.ruleIndex);
+				const targetIndex = Number(row.dataset.ruleIndex);
+				const rules = this._config.rules || [];
+				const draggedAction = rules[draggedIndex]?.action || "include";
+				const targetAction = rules[targetIndex]?.action || "include";
+				if (draggedAction !== targetAction) return;
+				event.preventDefault();
+				event.dataTransfer.dropEffect = "move";
+				row.classList.add("drag-over");
+				const rect = row.getBoundingClientRect();
+				list.insertBefore(draggedRow, event.clientY < rect.top + rect.height / 2 ? row : row.nextSibling);
+			});
+			row.addEventListener("dragleave", () => row.classList.remove("drag-over"));
+			row.addEventListener("drop", (event) => {
+				event.preventDefault();
+				row.classList.remove("drag-over");
+			});
+		});
+	}
+
+	_syncRuleEditor() {
+		(this._config.rules || []).forEach((rule, index) => {
+			const row = this.querySelector(`[data-rule-index="${index}"]`);
+			if (!row) return;
+
+			const title = row.querySelector(".rule-card-title");
+			if (title) {
+				title.textContent = String(rule.rule_name || "").trim() || String(rule.value || "").trim() || `Rule ${index + 1}`;
+			}
+
+			row.querySelectorAll("[data-rule-key]").forEach((element) => {
+				const key = element.dataset.ruleKey;
+				if (document.activeElement !== element) element.value = rule[key] ?? "";
+			});
+
+			const action = rule.action || "include";
+			const isExclude = action === "exclude";
+			const badge = row.querySelector(".rule-type");
+			if (badge) {
+				badge.textContent = isExclude ? "Exclude" : "Include";
+				badge.className = `rule-type rule-type-${action}`;
+			}
+			row.querySelector(".rule-appearance")?.classList.toggle("hidden", isExclude);
+
+			const form = row.querySelector("[data-rule-form]");
+			if (form) form.data = { icon: rule.icon || "", color: rule.color || "" };
+
+			row.querySelectorAll("[data-rule-option]").forEach((toggle) => {
+				const optionKey = toggle.dataset.ruleOption;
+				toggle.checked = optionKey === "show_first_match_only"
+					? rule[optionKey] === true
+					: rule[optionKey] !== false;
+			});
+
+			this._updateRuleTitleIcon(
+				row,
+				isExclude ? "" : (rule.icon || "mdi:calendar"),
+				this._ruleIconColor(rule),
+			);
+		});
 	}
 
 	_initializeSectionState() {
@@ -2189,12 +2408,12 @@ class EventSpotlightCardEditor extends HTMLElement {
 		const index = Number(row.dataset.ruleIndex);
 		const current = this._config.rules?.[index] || {};
 
-		if (key === "label" || key === "value") {
+		if (key === "rule_name" || key === "value") {
 			const title = row.querySelector(".rule-card-title");
-			const label = key === "label" ? value : current.label;
+			const ruleName = key === "rule_name" ? value : current.rule_name;
 			const ruleValue = key === "value" ? value : current.value;
 			if (title) {
-				title.textContent = String(label || "").trim() || String(ruleValue || "").trim() || `Rule ${index + 1}`;
+				title.textContent = String(ruleName || "").trim() || String(ruleValue || "").trim() || `Rule ${index + 1}`;
 			}
 		}
 
@@ -2206,10 +2425,10 @@ class EventSpotlightCardEditor extends HTMLElement {
 				badge.textContent = isExclude ? "Exclude" : "Include";
 				badge.className = `rule-type rule-type-${isExclude ? "exclude" : "include"}`;
 			}
-			appearance?.classList.toggle("hidden", isExclude);
+			row.querySelector(".rule-appearance")?.classList.toggle("hidden", isExclude);
 			this._updateRuleTitleIcon(
 				row,
-				current.icon || (isExclude ? "mdi:rule-remove-outline" : ""),
+				isExclude ? "" : (current.icon || "mdi:calendar"),
 				this._ruleIconColor({ ...current, action: value }),
 			);
 		}
@@ -2218,11 +2437,11 @@ class EventSpotlightCardEditor extends HTMLElement {
 	_updateRuleTitleIcon(row, iconValue, colorValue) {
 		const identity = row?.querySelector(".rule-card-identity");
 		let icon = row?.querySelector(".rule-card-icon");
-		const desiredIcon = iconValue ? this._safeIcon(iconValue, "") : "";
-		if (!desiredIcon) {
+		if (!iconValue) {
 			icon?.remove();
 			return;
 		}
+		const desiredIcon = this._safeIcon(iconValue, "mdi:calendar");
 		if (!icon && identity) {
 			icon = document.createElement("ha-icon");
 			icon.className = "rule-card-icon";
@@ -2232,49 +2451,94 @@ class EventSpotlightCardEditor extends HTMLElement {
 		if (icon) icon.style.color = colorValue || "var(--secondary-text-color)";
 	}
 
-	_updateRuleElement(element, value, rerender) {
+	_updateRuleName(element, value) {
+		const row = element.closest("[data-rule-index]");
+		const index = Number(row?.dataset.ruleIndex);
+		if (!Number.isInteger(index)) return;
+
+		const rules = [...(this._config.rules || [])];
+		const current = rules[index];
+		if (!current) return;
+
+		const updated = { ...current };
+		const ruleName = String(value || "");
+		const trimmedRuleName = ruleName.trim();
+
+		if (trimmedRuleName) {
+			updated.rule_name = ruleName;
+		} else {
+			delete updated.rule_name;
+		}
+
+		rules[index] = updated;
+		this._config = { ...this._config, rules };
+
+		const title = row.querySelector(".rule-card-title");
+		if (title) {
+			title.textContent =
+				trimmedRuleName ||
+				String(current.value || "").trim() ||
+				`Rule ${index + 1}`;
+		}
+
+		this.dispatchEvent(
+			new CustomEvent("config-changed", {
+				detail: { config: { ...this._config } },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	_updateRuleAction(element, value) {
+		const row = element.closest("[data-rule-index]");
+		const index = Number(row?.dataset.ruleIndex);
+		if (!Number.isInteger(index)) return;
+
+		const sourceRule = this._config.rules?.[index];
+		if (!sourceRule) return;
+
+		const updated = { ...sourceRule, action: value };
+
+		const rules = [...(this._config.rules || [])];
+		rules[index] = updated;
+		const orderedRules = this._orderRules(rules);
+		this._pendingOpenRuleIndex = orderedRules.indexOf(updated);
+		this._setRules(orderedRules, true);
+	}
+
+	_updateRuleElement(element, value) {
 		const row = element.closest("[data-rule-index]");
 		const index = Number(row?.dataset.ruleIndex);
 		const key = element.dataset.ruleKey;
-
-		if (!Number.isInteger(index) || !key) {
-			return;
-		}
+		if (!Number.isInteger(index) || !key) return;
 
 		this._updateRuleVisual(row, key, value);
+		const rules = (this._config.rules || []).map((rule, ruleIndex) => {
+			if (ruleIndex !== index) return rule;
+			return { ...rule, [key]: value };
+		});
 
-		const rules = (this._config.rules || []).map((rule, ruleIndex) =>
-			ruleIndex === index
-				? { ...rule, [key]: value }
-				: rule,
-		);
-
-		if (this._ruleInputTimer) {
-			clearTimeout(this._ruleInputTimer);
-		}
-
-		if (rerender) {
-			this._setRules(rules, true);
+		this._config = { ...this._config, rules };
+		if (element.tagName === "SELECT") {
+			this._setRules(rules, false);
 			return;
 		}
 
-		this._config = {
-			...this._config,
-			rules,
-		};
-
+		if (this._ruleInputTimer) clearTimeout(this._ruleInputTimer);
 		this._ruleInputTimer = setTimeout(() => {
 			this._setRules(this._config.rules || [], false);
 		}, 200);
 	}
 
 	_setRules(rules, rerender = true) {
+		const nextRules = rerender ? this._orderRules(rules) : rules;
 		const config = {
 			...this._config,
-			rules,
+			rules: nextRules,
 		};
 
-		if (!rules.length) {
+		if (!nextRules.length) {
 			delete config.rules;
 		}
 
@@ -2459,7 +2723,6 @@ window.customCards.push({
 				calendars: [
 					{
 						entity: entityId,
-						
 					},
 				],
 			},
