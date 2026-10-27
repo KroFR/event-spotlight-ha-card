@@ -5,7 +5,7 @@
 * License: MIT
 */
  
-const CARD_VERSION = "1.1.1";
+const CARD_VERSION = "1.1.2";
 
 /* ---------------------------------------------------------------------- */
 /*  Main card                                                             */
@@ -504,11 +504,12 @@ class EventSpotlightCard extends HTMLElement {
 
 		const lang = this._lang();
 		const configuredLayout = this._config.layout || EventSpotlightCard.FIELD_DEFAULTS.layout;
-		const layout = ["bubble", "chips", "list", "mushroom", "pro", "square"].includes(configuredLayout)
+		const layout = ["bubble", "chips", "list", "list-2", "list-3", "mushroom", "pro", "square"].includes(configuredLayout)
 			? configuredLayout
 			: EventSpotlightCard.FIELD_DEFAULTS.layout;
 		const configuredAlignment = this._config.card_alignment || EventSpotlightCard.FIELD_DEFAULTS.card_alignment;
-		const cardAlignment = ["left", "center", "right", "justified", "stretched"].includes(configuredAlignment)
+		const supportsCardAlignment = layout === "chips" || layout === "mushroom";
+		const cardAlignment = supportsCardAlignment && ["left", "center", "right", "justified", "stretched"].includes(configuredAlignment)
 			? configuredAlignment
 			: EventSpotlightCard.FIELD_DEFAULTS.card_alignment;
 		const darkMode = Boolean(this._hass?.themes?.darkMode);
@@ -1024,6 +1025,105 @@ class EventSpotlightCard extends HTMLElement {
 			}
 
 			/* ------------------------------------------------------------------ */
+			/* List - 2 columns layout                                             */
+			/* ------------------------------------------------------------------ */
+			.events.list-2 {
+				display: grid;
+				grid-template-columns: repeat(2, minmax(0, 1fr));
+				align-items: start;
+				width: 100%;
+				gap: 8px;
+			}
+			.list-2 .event,
+			.list-3 .event {
+				display: flex;
+				box-sizing: border-box;
+				align-items: center;
+				gap: 10px;
+				width: 100%;
+				max-width: 100%;
+				min-width: 0;
+				min-height: 0;
+				height: fit-content;
+				padding: 10px;
+				overflow: hidden;
+				border: 1px solid var(--divider-color);
+				border-radius: 12px;
+				background: color-mix(
+					in srgb,
+					var(--event-color) var(--event-background-mix, 9%),
+					var(--event-background-base, var(--ha-card-background, var(--card-background-color)))
+				);
+			}
+			.list-2 .event-icon,
+			.list-3 .event-icon {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				width: 36px;
+				height: 36px;
+				flex-shrink: 0;
+				border-radius: 50%;
+				color: var(--event-color);
+				background: color-mix(in srgb, var(--event-color) 18%, transparent);
+			}
+			.list-2 .event.no-icon-background-color .event-icon,
+			.list-3 .event.no-icon-background-color .event-icon {
+				background: transparent;
+			}
+			.list-2 .event-text,
+			.list-3 .event-text {
+				overflow: hidden;
+				min-width: 0;
+			}
+			.list-2 .event-title,
+			.list-2 .event-date,
+			.list-2 .event-detail,
+			.list-3 .event-title,
+			.list-3 .event-date,
+			.list-3 .event-detail {
+				overflow: hidden;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+			}
+			.list-2 .event-title,
+			.list-3 .event-title {
+				font-size: 14px;
+				font-weight: 600;
+				color: var(--primary-text-color);
+			}
+			.list-2 .event-date,
+			.list-2 .event-detail,
+			.list-3 .event-date,
+			.list-3 .event-detail {
+				font-size: 12px;
+				color: var(--secondary-text-color);
+			}
+			.list-2 .event-date,
+			.list-3 .event-date {
+				font-weight: 600;
+			}
+
+			/* ------------------------------------------------------------------ */
+			/* List - 3 columns layout                                             */
+			/* ------------------------------------------------------------------ */
+			.events.list-3 {
+				display: grid;
+				grid-template-columns: repeat(3, minmax(0, 1fr));
+				align-items: start;
+				width: 100%;
+				gap: 8px;
+			}
+			.list-3 .event {
+				gap: 8px;
+				padding: 8px;
+			}
+			.list-3 .event-icon {
+				width: 32px;
+				height: 32px;
+			}
+
+			/* ------------------------------------------------------------------ */
 			/* Mushroom layout                                                     */
 			/* ------------------------------------------------------------------ */
 			.events.mushroom {
@@ -1523,6 +1623,12 @@ class EventSpotlightCardEditor extends HTMLElement {
 		return /^(?:mdi|hacs|advanced):[a-z0-9_-]+$/i.test(value) ? value : fallback;
 	}
 
+	_supportsCardAlignment() {
+		const layout =
+			this._config.layout ?? EventSpotlightCard.FIELD_DEFAULTS.layout;
+		return layout === "chips" || layout === "mushroom";
+	}
+
 	_ruleIconColor(rule) {
 		if ((rule?.action || "include") === "exclude") {
 			return "#64748b";
@@ -1661,6 +1767,10 @@ class EventSpotlightCardEditor extends HTMLElement {
 				ha-selector {
 					display: block;
 					width: 100%;
+				}  
+				.alignment-field.disabled {
+					opacity: 0.5;
+					pointer-events: none;
 				}
 
 				.calendar-settings {
@@ -1960,7 +2070,9 @@ class EventSpotlightCardEditor extends HTMLElement {
 					<div class="section-content">
 						<div class="grid">
 							${this._selector("layout", "Layout")}
-							${this._selector("card_alignment", "Card alignment")}
+							<div class="alignment-field${this._supportsCardAlignment() ? "" : " disabled"}">
+								${this._selector("card_alignment", "Card alignment")}
+							</div>
 						</div>
 						${this._switchRow("show_title", "Show card header")}
 						${this._switchRow("show_title_icon", "Show header icon")}
@@ -2531,6 +2643,8 @@ class EventSpotlightCardEditor extends HTMLElement {
 							{ value: "bubble", label: "Bubble" },
 							{ value: "chips", label: "Chips" },
 							{ value: "list", label: "List" },
+							{ value: "list-2", label: "List - 2 columns" },
+							{ value: "list-3", label: "List - 3 columns" },
 							{ value: "mushroom", label: "Mushroom" },
 							{ value: "pro", label: "Pro" },
 							{ value: "square", label: "Square" },
@@ -2551,6 +2665,9 @@ class EventSpotlightCardEditor extends HTMLElement {
 					},
 				};
 			else s.selector = { object: {} };
+			if (key === "card_alignment") {
+				s.disabled = !this._supportsCardAlignment();
+			}
 			s.addEventListener("value-changed", (e) => this._valueChanged(e));
 		});
 	}
