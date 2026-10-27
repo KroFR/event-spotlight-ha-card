@@ -86,14 +86,10 @@ class EventSpotlightCard extends HTMLElement {
 		this._loadKey = "";
 		this._allDayTimer = null;
 		this._updateTimer = null;
-		this._stretchedResizeObserver = null;
-		this._stretchedLayoutFrame = null;
 	}
 	disconnectedCallback() {
 		if (this._allDayTimer) clearTimeout(this._allDayTimer);
 		if (this._updateTimer) clearTimeout(this._updateTimer);
-		if (this._stretchedLayoutFrame) cancelAnimationFrame(this._stretchedLayoutFrame);
-		this._stretchedResizeObserver?.disconnect();
 	}
 
 	setConfig(config) {
@@ -500,57 +496,6 @@ class EventSpotlightCard extends HTMLElement {
 		return [...configured.filter((key) => defaults.includes(key)), ...defaults.filter((key) => !configured.includes(key))];
 	}
 
-	_scheduleStretchedLayout() {
-		if (this._stretchedLayoutFrame) cancelAnimationFrame(this._stretchedLayoutFrame);
-
-		this._stretchedLayoutFrame = requestAnimationFrame(() => {
-			this._stretchedLayoutFrame = null;
-			this._updateStretchedLayout();
-		});
-	}
-
-	_updateStretchedLayout() {
-		this._stretchedResizeObserver?.disconnect();
-		this._stretchedResizeObserver = null;
-
-		const container = this.shadowRoot?.querySelector(
-			".events.align-stretched.chips, .events.align-stretched.mushroom",
-		);
-
-		if (!container) return;
-
-		const updateColumns = () => {
-			const cards = [...container.querySelectorAll(":scope > .event")];
-			const availableWidth = container.clientWidth;
-			if (!cards.length || !availableWidth) return;
-
-			const gap = Number.parseFloat(getComputedStyle(container).columnGap) || 0;
-			let usedWidth = 0;
-			let columns = 0;
-
-			for (const card of cards) {
-				const clone = card.cloneNode(true);
-				clone.style.position = "absolute";
-				clone.style.visibility = "hidden";
-				clone.style.width = "max-content";
-				clone.style.maxWidth = "none";
-				container.appendChild(clone);
-				const cardWidth = clone.getBoundingClientRect().width;
-				clone.remove();
-
-				const nextWidth = usedWidth + (columns ? gap : 0) + cardWidth;
-				if (columns && nextWidth > availableWidth + 0.5) break;
-				usedWidth = nextWidth;
-				columns += 1;
-			}
-
-			container.style.setProperty("--stretched-columns", String(Math.max(1, columns)));
-		};
-
-		updateColumns();
-		this._stretchedResizeObserver = new ResizeObserver(updateColumns);
-		this._stretchedResizeObserver.observe(container);
-	}
 
 	_render() {
 		if (!this.shadowRoot || !this._config || !this._hass) {
@@ -770,7 +715,6 @@ class EventSpotlightCard extends HTMLElement {
 				</div>
 			</ha-card>`;
 
-		this._scheduleStretchedLayout();
 	}
 
 	_baseStyles() {
@@ -839,25 +783,27 @@ class EventSpotlightCard extends HTMLElement {
 			.events.align-center { justify-content: center; }
 			.events.align-right { justify-content: end; }
 			.events.align-justified { justify-content: space-between; width: 100%; }
-			.events.align-stretched {
-				width: 100%;
-			}
-			.events.chips.align-stretched,
-			.events.mushroom.align-stretched {
-				display: grid;
-				grid-template-columns: repeat(
-					var(--stretched-columns, 1),
-					minmax(0, 1fr)
-				);
-				align-items: start;
-			}
-			.events.chips.align-stretched .event,
-			.events.mushroom.align-stretched .event {
-				box-sizing: border-box;
-				width: 100%;
-				max-width: none;
-			}
-
+			.events.align-stretched {  
+				width: 100%;  
+			}  
+			.events.chips.align-stretched,  
+			.events.mushroom.align-stretched {  
+				display: flex;  
+				flex-wrap: wrap;  
+				align-items: stretch;  
+				align-content: flex-start;  
+				justify-content: flex-start;  
+			}  
+			.events.chips.align-stretched .event,  
+			.events.mushroom.align-stretched .event {  
+				box-sizing: border-box;  
+				flex: 1 1 auto;  
+				width: auto;  
+				max-width: 100%;  
+			}  
+			.events.chips.align-stretched .event {  
+				min-width: max-content;  
+			}  
 			/* ------------------------------------------------------------------ */
 			/* Bubble layout                                                       */
 			/* ------------------------------------------------------------------ */
