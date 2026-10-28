@@ -39,7 +39,7 @@ class EventSpotlightCard extends HTMLElement {
 		update_interval: 60,
 		all_day_hide_time: "23:59",
 		layout: "mushroom",
-		card_alignment: "left",
+		card_arrangement: "left",
 		language: "auto",
 		show_title: true,
 		show_title_icon: true,
@@ -504,14 +504,14 @@ class EventSpotlightCard extends HTMLElement {
 
 		const lang = this._lang();
 		const configuredLayout = this._config.layout || EventSpotlightCard.FIELD_DEFAULTS.layout;
-		const layout = ["bubble", "chips", "list", "list-2", "list-3", "mushroom", "pro", "square"].includes(configuredLayout)
+		const layout = ["bubble", "chips", "mushroom", "pro", "square"].includes(configuredLayout)
 			? configuredLayout
 			: EventSpotlightCard.FIELD_DEFAULTS.layout;
-		const configuredAlignment = this._config.card_alignment || EventSpotlightCard.FIELD_DEFAULTS.card_alignment;
-		const supportsCardAlignment = layout === "chips" || layout === "mushroom";
-		const cardAlignment = supportsCardAlignment && ["left", "center", "right", "justified", "stretched"].includes(configuredAlignment)
-			? configuredAlignment
-			: EventSpotlightCard.FIELD_DEFAULTS.card_alignment;
+		const configuredArrangement = this._config.card_arrangement || EventSpotlightCard.FIELD_DEFAULTS.card_arrangement;
+		const supportsCardArrangement = ["chips", "mushroom"].includes(layout);
+		const cardArrangement = supportsCardArrangement && ["left", "center", "right", "justified", "stretched", "list", "2-columns", "3-columns"].includes(configuredArrangement)
+			? configuredArrangement
+			: EventSpotlightCard.FIELD_DEFAULTS.card_arrangement;
 		const darkMode = Boolean(this._hass?.themes?.darkMode);
 		const visibleEvents = this._events.filter((event) => this._isAllDayEventVisible(event));
 		this._scheduleAllDayRefresh();
@@ -690,7 +690,7 @@ class EventSpotlightCard extends HTMLElement {
 
 			}
 			contentBlock = `
-				<div class="events ${layout} align-${cardAlignment}">
+				<div class="events ${layout} arrange-${cardArrangement}">
 					${eventBlocks}
 				</div>`;
 		}
@@ -777,34 +777,6 @@ class EventSpotlightCard extends HTMLElement {
 				color: var(--primary-text-color);
 			}
 
-			/* ------------------------------------------------------------------ */
-			/* Shared container alignment                                         */
-			/* ------------------------------------------------------------------ */
-			.events.align-left { justify-content: start; }
-			.events.align-center { justify-content: center; }
-			.events.align-right { justify-content: end; }
-			.events.align-justified { justify-content: space-between; width: 100%; }
-			.events.align-stretched {  
-				width: 100%;  
-			}  
-			.events.chips.align-stretched,  
-			.events.mushroom.align-stretched {  
-				display: flex;  
-				flex-wrap: wrap;  
-				align-items: stretch;  
-				align-content: flex-start;  
-				justify-content: flex-start;  
-			}  
-			.events.chips.align-stretched .event,  
-			.events.mushroom.align-stretched .event {  
-				box-sizing: border-box;  
-				flex: 1 1 auto;  
-				width: auto;  
-				max-width: 100%;  
-			}  
-			.events.chips.align-stretched .event {  
-				min-width: max-content;  
-			}  
 			/* ------------------------------------------------------------------ */
 			/* Bubble layout                                                       */
 			/* ------------------------------------------------------------------ */
@@ -961,169 +933,6 @@ class EventSpotlightCard extends HTMLElement {
 			}
 
 			/* ------------------------------------------------------------------ */
-			/* List layout                                                         */
-			/* ------------------------------------------------------------------ */
-			.events.list {
-				display: grid;
-				grid-template-columns: 1fr;
-				align-items: start;
-				width: 100%;
-				gap: 8px;
-			}
-			.list .event {
-				display: flex;
-				box-sizing: border-box;
-				align-items: center;
-				align-self: flex-start;
-				gap: 10px;
-				width: 100%;
-				max-width: 100%;
-				min-width: 0;
-				min-height: 0;
-				height: fit-content;
-				padding: 10px;
-				border: 1px solid var(--divider-color);
-				border-radius: 12px;
-				background: color-mix(
-					in srgb,
-					var(--event-color) var(--event-background-mix, 9%),
-					var(--event-background-base, var(--ha-card-background, var(--card-background-color)))
-				);
-			}
-			.list .event-icon {
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				width: 36px;
-				height: 36px;
-				flex-shrink: 0;
-				border-radius: 50%;
-				color: var(--event-color);
-				background: color-mix(in srgb, var(--event-color) 18%, transparent);
-			}
-			.list .event.no-icon-background-color .event-icon {
-				background: transparent;
-			}
-			.list .event-text {
-				min-width: 0;
-			}
-			.list .event-title {
-				overflow: hidden;
-				font-size: 14px;
-				font-weight: 600;
-				white-space: nowrap;
-				text-overflow: ellipsis;
-				color: var(--primary-text-color);
-			}
-			.list .event-date,
-			.list .event-detail {
-				font-size: 12px;
-				color: var(--secondary-text-color);
-			}
-			.list .event-date {
-				font-weight: 600;
-			}
-
-			/* ------------------------------------------------------------------ */
-			/* List - 2 columns layout                                             */
-			/* ------------------------------------------------------------------ */
-			.events.list-2 {
-				display: grid;
-				grid-template-columns: repeat(2, minmax(0, 1fr));
-				align-items: start;
-				width: 100%;
-				gap: 8px;
-			}
-			.list-2 .event,
-			.list-3 .event {
-				display: flex;
-				box-sizing: border-box;
-				align-items: center;
-				gap: 10px;
-				width: 100%;
-				max-width: 100%;
-				min-width: 0;
-				min-height: 0;
-				height: fit-content;
-				padding: 10px;
-				overflow: hidden;
-				border: 1px solid var(--divider-color);
-				border-radius: 12px;
-				background: color-mix(
-					in srgb,
-					var(--event-color) var(--event-background-mix, 9%),
-					var(--event-background-base, var(--ha-card-background, var(--card-background-color)))
-				);
-			}
-			.list-2 .event-icon,
-			.list-3 .event-icon {
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				width: 36px;
-				height: 36px;
-				flex-shrink: 0;
-				border-radius: 50%;
-				color: var(--event-color);
-				background: color-mix(in srgb, var(--event-color) 18%, transparent);
-			}
-			.list-2 .event.no-icon-background-color .event-icon,
-			.list-3 .event.no-icon-background-color .event-icon {
-				background: transparent;
-			}
-			.list-2 .event-text,
-			.list-3 .event-text {
-				overflow: hidden;
-				min-width: 0;
-			}
-			.list-2 .event-title,
-			.list-2 .event-date,
-			.list-2 .event-detail,
-			.list-3 .event-title,
-			.list-3 .event-date,
-			.list-3 .event-detail {
-				overflow: hidden;
-				white-space: nowrap;
-				text-overflow: ellipsis;
-			}
-			.list-2 .event-title,
-			.list-3 .event-title {
-				font-size: 14px;
-				font-weight: 600;
-				color: var(--primary-text-color);
-			}
-			.list-2 .event-date,
-			.list-2 .event-detail,
-			.list-3 .event-date,
-			.list-3 .event-detail {
-				font-size: 12px;
-				color: var(--secondary-text-color);
-			}
-			.list-2 .event-date,
-			.list-3 .event-date {
-				font-weight: 600;
-			}
-
-			/* ------------------------------------------------------------------ */
-			/* List - 3 columns layout                                             */
-			/* ------------------------------------------------------------------ */
-			.events.list-3 {
-				display: grid;
-				grid-template-columns: repeat(3, minmax(0, 1fr));
-				align-items: start;
-				width: 100%;
-				gap: 8px;
-			}
-			.list-3 .event {
-				gap: 8px;
-				padding: 8px;
-			}
-			.list-3 .event-icon {
-				width: 32px;
-				height: 32px;
-			}
-
-			/* ------------------------------------------------------------------ */
 			/* Mushroom layout                                                     */
 			/* ------------------------------------------------------------------ */
 			.events.mushroom {
@@ -1203,7 +1012,7 @@ class EventSpotlightCard extends HTMLElement {
 				display: grid;
 				grid-template-columns: minmax(0, 1fr);
 				width: 100%;
-				gap: 0px;
+				gap: 0;
 			}
 			.pro-day-group {
 				display: grid;
@@ -1255,8 +1064,6 @@ class EventSpotlightCard extends HTMLElement {
 				);
 			}
 			.pro-event.no-card-background-color {
-				padding-right: 0;
-				padding-left: 0;
 				border-radius: 0;
 				background: transparent;
 			}
@@ -1295,15 +1102,16 @@ class EventSpotlightCard extends HTMLElement {
 			}
 			.pro-detail {
 				display: grid;
-				grid-template-columns: 18px minmax(0, 1fr);
+				grid-template-columns: 24px minmax(0, 1fr);
 				align-items: start;
-				gap: 4px;
+				gap: 6px;
 				font-size: 12px;
 				font-weight: 400;
 				color: var(--secondary-text-color);
 			}
 			.pro-detail ha-icon {
 				--mdc-icon-size: 15px;
+				justify-self: center;
 				color: currentColor;
 			}
 			.pro-detail span {
@@ -1373,6 +1181,90 @@ class EventSpotlightCard extends HTMLElement {
 			}
 
 			/* ------------------------------------------------------------------ */
+			/* Card arrangements                                                  */
+			/* ------------------------------------------------------------------ */
+
+			/* Left / Center / Right */
+			.events.arrange-left {
+				justify-content: flex-start;
+			}
+			.events.arrange-center {
+				justify-content: center;
+			}
+			.events.arrange-right {
+				justify-content: flex-end;
+			}
+
+			/* Justified */
+			.events.arrange-justified {
+				width: 100%;
+				justify-content: space-between;
+			}
+
+			/* Stretched */
+			.events.chips.arrange-stretched,
+			.events.mushroom.arrange-stretched {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: stretch;
+				align-content: flex-start;
+				justify-content: flex-start;
+				width: 100%;
+			}
+			.events.chips.arrange-stretched .event,
+			.events.mushroom.arrange-stretched .event {
+				box-sizing: border-box;
+				flex: 1 1 auto;
+				width: auto;
+				max-width: 100%;
+			}
+			.events.chips.arrange-stretched .event {
+				min-width: max-content;
+			}
+
+			/* List / 2 columns / 3 columns */
+			.events.chips.arrange-list,
+			.events.mushroom.arrange-list,
+			.events.chips.arrange-2-columns,
+			.events.mushroom.arrange-2-columns,
+			.events.chips.arrange-3-columns,
+			.events.mushroom.arrange-3-columns {
+				display: grid;
+				align-items: start;
+				align-content: start;
+				width: 100%;
+			}
+			.events.chips.arrange-list,
+			.events.mushroom.arrange-list {
+				grid-template-columns: minmax(0, 1fr);
+			}
+			.events.chips.arrange-2-columns,
+			.events.mushroom.arrange-2-columns {
+				grid-template-columns: repeat(2, minmax(0, 1fr));
+			}
+			.events.chips.arrange-3-columns,
+			.events.mushroom.arrange-3-columns {
+				grid-template-columns: repeat(3, minmax(0, 1fr));
+			}
+
+			/* Shared constrained-card behavior */
+			.events:is(.arrange-list, .arrange-2-columns, .arrange-3-columns) .event {
+				box-sizing: border-box;
+				width: 100%;
+				max-width: 100%;
+				min-width: 0;
+			}
+			.events:is(.arrange-list, .arrange-2-columns, .arrange-3-columns) .event-text {
+				overflow: hidden;
+				min-width: 0;
+			}
+			.events:is(.arrange-2-columns, .arrange-3-columns) :is(.event-title, .event-date, .event-detail) {
+				overflow: hidden;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+			}
+
+			/* ------------------------------------------------------------------ */
 			/* Empty, loading, error, and responsive states                        */
 			/* ------------------------------------------------------------------ */
 			.state {
@@ -1397,6 +1289,7 @@ class EventSpotlightCard extends HTMLElement {
 		`;
 	}
 }
+
 /* ---------------------------------------------------------------------- */
 /*  Visual editor                                                         */
 /* ---------------------------------------------------------------------- */
@@ -1623,10 +1516,10 @@ class EventSpotlightCardEditor extends HTMLElement {
 		return /^(?:mdi|hacs|advanced):[a-z0-9_-]+$/i.test(value) ? value : fallback;
 	}
 
-	_supportsCardAlignment() {
+	_supportsCardArrangement() {
 		const layout =
 			this._config.layout ?? EventSpotlightCard.FIELD_DEFAULTS.layout;
-		return layout === "chips" || layout === "mushroom";
+		return ["chips", "mushroom"].includes(layout);
 	}
 
 	_ruleIconColor(rule) {
@@ -1768,7 +1661,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 					display: block;
 					width: 100%;
 				}  
-				.alignment-field.disabled {
+				.arrangement-field.disabled {
 					opacity: 0.5;
 					pointer-events: none;
 				}
@@ -2070,8 +1963,8 @@ class EventSpotlightCardEditor extends HTMLElement {
 					<div class="section-content">
 						<div class="grid">
 							${this._selector("layout", "Layout")}
-							<div class="alignment-field${this._supportsCardAlignment() ? "" : " disabled"}">
-								${this._selector("card_alignment", "Card alignment")}
+							<div class="arrangement-field${this._supportsCardArrangement() ? "" : " disabled"}">
+								${this._selector("card_arrangement", "Card arrangement")}
 							</div>
 						</div>
 						${this._switchRow("show_title", "Show card header")}
@@ -2642,16 +2535,13 @@ class EventSpotlightCardEditor extends HTMLElement {
 						options: [
 							{ value: "bubble", label: "Bubble" },
 							{ value: "chips", label: "Chips" },
-							{ value: "list", label: "List" },
-							{ value: "list-2", label: "List - 2 columns" },
-							{ value: "list-3", label: "List - 3 columns" },
 							{ value: "mushroom", label: "Mushroom" },
 							{ value: "pro", label: "Pro" },
 							{ value: "square", label: "Square" },
 						],
 					},
 				};
-			else if (key === "card_alignment")
+			else if (key === "card_arrangement")
 				s.selector = {
 					select: {
 						mode: "dropdown",
@@ -2661,12 +2551,15 @@ class EventSpotlightCardEditor extends HTMLElement {
 							{ value: "right", label: "Right" },
 							{ value: "justified", label: "Justified" },
 							{ value: "stretched", label: "Stretched" },
+							{ value: "list", label: "List" },
+							{ value: "2-columns", label: "2 columns" },
+							{ value: "3-columns", label: "3 columns" },
 						],
 					},
 				};
 			else s.selector = { object: {} };
-			if (key === "card_alignment") {
-				s.disabled = !this._supportsCardAlignment();
+			if (key === "card_arrangement") {
+				s.disabled = !this._supportsCardArrangement();
 			}
 			s.addEventListener("value-changed", (e) => this._valueChanged(e));
 		});
