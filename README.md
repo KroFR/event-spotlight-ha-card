@@ -285,7 +285,7 @@ Groups events by day in a full-width timeline-style layout. The day is displayed
 
 | Light Theme | Dark Theme |
 |---|---|
-| <img width="500" height="579" alt="image" src="https://github.com/user-attachments/assets/8d991fb8-3856-40b2-9b6d-2119566c3cfa" /> | <img width="501" height="582" alt="image" src="https://github.com/user-attachments/assets/dba3ee21-088f-40fb-8f2b-35dd39d7622e" /> |
+| <img width="501" height="706" alt="image" src="https://github.com/user-attachments/assets/774b8d09-aae1-44b6-ae2a-8255860cceed" /> | <img width="501" height="708" alt="image" src="https://github.com/user-attachments/assets/e498ea7a-c439-4461-9e70-aa0c9d49d165" /> |
 
 ### Square
 
