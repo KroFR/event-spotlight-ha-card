@@ -5,7 +5,7 @@
 * License: MIT
 */
  
-const CARD_VERSION = "1.1.2";
+const CARD_VERSION = "1.1.3";
 
 /* ---------------------------------------------------------------------- */
 /*  Main card                                                             */
@@ -51,6 +51,23 @@ class EventSpotlightCard extends HTMLElement {
 		show_location: false,
 		display_order: ["date_time", "description", "location", "calendar"],
 	};
+
+	static SECURITY_LIMITS = {
+		days: { min: 1, max: 365 },
+		max_rendered_events: 500,
+		regex_pattern: 256,
+		regex_source: 4096,
+		title: 512,
+		description: 8192,
+		location: 1024,
+		calendar: 512,
+		rule_value: 4096,
+	};
+
+	static ICON_PREFIXES = ["mdi", "hacs", "advanced-camera-card"];
+	static RULE_ACTIONS = ["include", "exclude"];
+	static RULE_FIELDS = ["summary", "description", "location", "calendar"];
+	static RULE_OPERATORS = ["contains", "equals", "starts_with", "ends_with", "regex"];
 
 	static getConfigElement() {
 		return document.createElement("event-spotlight-card-editor");
@@ -191,6 +208,49 @@ class EventSpotlightCard extends HTMLElement {
 			.replaceAll("'", "&#039;");
 	}
 
+	_limitText(value, limit) {
+		const text = String(value ?? "");
+		return text.length > limit ? `${text.slice(0, limit)}…` : text;
+	}
+
+	_clampedNumber(value, fallback, min, max) {
+		const number = Number(value);
+		if (!Number.isFinite(number)) return fallback;
+		return Math.min(max, Math.max(min, number));
+	}
+
+	_normalizeRuleAction(action) {
+		return EventSpotlightCard.RULE_ACTIONS.includes(action) ? action : "include";
+	}
+
+	_normalizeRuleField(field) {
+		return EventSpotlightCard.RULE_FIELDS.includes(field) ? field : "summary";
+	}
+
+	_normalizeRuleOperator(operator) {
+		return EventSpotlightCard.RULE_OPERATORS.includes(operator)
+			? operator
+			: "contains";
+	}
+
+	_safeRegex(pattern) {
+		const value = String(pattern ?? "");
+		if (!value || value.length > EventSpotlightCard.SECURITY_LIMITS.regex_pattern) {
+			return null;
+		}
+		const unsafePatterns = [
+			/\([^)]*[+*][^)]*\)[+*{]/,
+			/\.\*[+*{]/,
+			/\.\+[+*{]/,
+		];
+		if (unsafePatterns.some((test) => test.test(value))) return null;
+		try {
+			return new RegExp(value, "iu");
+		} catch {
+			return null;
+		}
+	}
+
 	_date(value) {
 		if (/^\d{4}-\d{2}-\d{2}$/.test(value || "")) {
 			const [y, m, d] = value.split("-").map(Number);
@@ -200,64 +260,74 @@ class EventSpotlightCard extends HTMLElement {
 	}
 
 	_ruleMatches(event, rule) {
-		const value = String(rule.value || "").trim();
+		const value = this._limitText(
+			rule?.value,
+			EventSpotlightCard.SECURITY_LIMITS.rule_value,
+		).trim();
 		if (!value) return false;
 
-		const operator = rule.operator || "contains";
-		const normalize = (text) => String(text || "").trim().toLocaleLowerCase();
+		const field = this._normalizeRuleField(rule?.field);
+		const operator = this._normalizeRuleOperator(rule?.operator);
+		const normalize = (text) => String(text ?? "").trim().toLocaleLowerCase();
 		const expected = normalize(value);
+		let source;
 
-		if (rule.field === "calendar") {
-			const calendarId = normalize(event.calendar);
-			const calendarName = normalize(event.calendar_name);
-
+		if (field === "calendar") {
+			const calendarId = this._limitText(
+				event.calendar,
+				EventSpotlightCard.SECURITY_LIMITS.calendar,
+			);
+			const calendarName = this._limitText(
+				event.calendar_name,
+				EventSpotlightCard.SECURITY_LIMITS.calendar,
+			);
 			if (operator === "equals") {
-				return calendarId === expected || calendarName === expected;
+				return normalize(calendarId) === expected || normalize(calendarName) === expected;
 			}
-
-			const source = `${event.calendar || ""} ${event.calendar_name || ""}`.trim();
-			const normalizedSource = normalize(source);
-			if (operator === "starts_with") return normalizedSource.startsWith(expected);
-			if (operator === "ends_with") return normalizedSource.endsWith(expected);
-			if (operator === "regex") {
-				try {
-					return new RegExp(value, "iu").test(source);
-				} catch (_) {
-					return false;
-				}
-			}
-			return normalizedSource.includes(expected);
+			source = `${calendarId} ${calendarName}`.trim();
+		} else {
+			const limit = field === "description"
+				? EventSpotlightCard.SECURITY_LIMITS.description
+				: field === "location"
+					? EventSpotlightCard.SECURITY_LIMITS.location
+					: EventSpotlightCard.SECURITY_LIMITS.title;
+			source = this._limitText(event[field], limit);
 		}
 
-		const source = String(event[rule.field || "summary"] || "");
-		const normalizedSource = normalize(source);
+		const searchableSource = source.slice(
+			0,
+			EventSpotlightCard.SECURITY_LIMITS.regex_source,
+		);
+		const normalizedSource = normalize(searchableSource);
+
 		if (operator === "equals") return normalizedSource === expected;
 		if (operator === "starts_with") return normalizedSource.startsWith(expected);
 		if (operator === "ends_with") return normalizedSource.endsWith(expected);
 		if (operator === "regex") {
-			try {
-				return new RegExp(value, "iu").test(source);
-			} catch (_) {
-				return false;
-			}
+			const regex = this._safeRegex(value);
+			return regex ? regex.test(searchableSource) : false;
 		}
 		return normalizedSource.includes(expected);
 	}
+
 	_decorate(event, calendar) {
 		const state = this._hass.states[calendar.entity];
 		const calendarName =
 			calendar.name || state?.attributes?.friendly_name || calendar.entity;
 		const base = {
 			...event,
-			calendar: calendar.entity,
-			calendar_name: calendarName,
+			summary: this._limitText(event.summary, EventSpotlightCard.SECURITY_LIMITS.title),
+			description: this._limitText(event.description, EventSpotlightCard.SECURITY_LIMITS.description),
+			location: this._limitText(event.location, EventSpotlightCard.SECURITY_LIMITS.location),
+			calendar: this._limitText(calendar.entity, EventSpotlightCard.SECURITY_LIMITS.calendar),
+			calendar_name: this._limitText(calendarName, EventSpotlightCard.SECURITY_LIMITS.calendar),
 			start_date: this._date(event.start),
 		};
 		const matches = (this._config.rules || [])
 			.map((rule, index) => ({ rule, index }))
 			.filter(
 				({ rule }) =>
-					(rule.action || "include") === "include" &&
+					this._normalizeRuleAction(rule.action) === "include" &&
 					this._ruleMatches(base, rule),
 			);
 		const matchedRules = matches.map(({ rule }) => rule);
@@ -303,8 +373,13 @@ class EventSpotlightCard extends HTMLElement {
 	}
 
 	_safeIcon(icon, fallback = "mdi:calendar") {
-		const value = String(icon || "").trim();
-		return /^(?:mdi|hacs|advanced-camera-card):[a-z0-9_-]+$/i.test(value) ? value : fallback;
+		const value = String(icon ?? "").trim();
+		const parts = value.split(":");
+		if (parts.length !== 2) return fallback;
+		const [prefix, name] = parts;
+		if (!EventSpotlightCard.ICON_PREFIXES.includes(prefix.toLowerCase())) return fallback;
+		if (!/^[a-z0-9_-]+$/i.test(name)) return fallback;
+		return `${prefix.toLowerCase()}:${name}`;
 	}
 
 	_safeCustomColor(color) {
@@ -378,11 +453,11 @@ class EventSpotlightCard extends HTMLElement {
 	_passes(event) {
 		const rules = this._config.rules || [];
 		const excluded = rules.some(
-			(rule) => (rule.action || "include") === "exclude" && rule.value && this._ruleMatches(event, rule),
+			(rule) => this._normalizeRuleAction(rule.action) === "exclude" && rule.value && this._ruleMatches(event, rule),
 		);
 		if (excluded) return false;
 		return rules.some(
-			(rule) => (rule.action || "include") === "include" && rule.value && this._ruleMatches(event, rule),
+			(rule) => this._normalizeRuleAction(rule.action) === "include" && rule.value && this._ruleMatches(event, rule),
 		);
 	}
 	async _loadEvents() {
@@ -396,8 +471,11 @@ class EventSpotlightCard extends HTMLElement {
 		this._loading = true;
 		this._error = "";
 		this._render();
-		const days = Number(
-			this._config.days ?? EventSpotlightCard.FIELD_DEFAULTS.days,
+		const days = this._clampedNumber(
+			this._config.days,
+			EventSpotlightCard.FIELD_DEFAULTS.days,
+			EventSpotlightCard.SECURITY_LIMITS.days.min,
+			EventSpotlightCard.SECURITY_LIMITS.days.max,
 		);
 		const start = new Date();
 		const end = new Date(start.getTime() + days * 86400000);
@@ -430,21 +508,21 @@ class EventSpotlightCard extends HTMLElement {
 				.filter((event) => this._passes(event))
 				.sort((a, b) => a.start_date - b.start_date);
 			const firstMatchRules = new Set();
-			this._events = sortedEvents.filter((event) => {
-				if (!event.show_first_match_only || event.primary_rule_index < 0) {
+			this._events = sortedEvents
+				.filter((event) => {
+					if (!event.show_first_match_only || event.primary_rule_index < 0) {
+						return true;
+					}
+					if (firstMatchRules.has(event.primary_rule_index)) return false;
+					firstMatchRules.add(event.primary_rule_index);
 					return true;
-				}
-				if (firstMatchRules.has(event.primary_rule_index)) {
-					return false;
-				}
-				firstMatchRules.add(event.primary_rule_index);
-				return true;
-			});
+				})
+				.slice(0, EventSpotlightCard.SECURITY_LIMITS.max_rendered_events);
 			this._loadKey = JSON.stringify([this._calendarIds(), this._config.days, this._rulesLoadKey()]);
 		} catch (error) {
 			console.error(
 				"Event Spotlight Card: failed to load spotlight events",
-				error,
+				error?.message || "Unknown error",
 			);
 			this._error = error?.message || "error";
 		} finally {
@@ -509,6 +587,51 @@ class EventSpotlightCard extends HTMLElement {
 		return [...configured.filter((key) => defaults.includes(key)), ...defaults.filter((key) => !configured.includes(key))];
 	}
 
+
+	_applyDynamicStyles(events, layout) {
+		if (!this.shadowRoot || !events.length) return;
+
+		if (layout === "bubble") {
+			const rows = [...this.shadowRoot.querySelectorAll(".bubble-event-line")];
+			rows.forEach((row, index) => {
+				const event = events[index];
+				if (!event) return;
+				row.style.setProperty(
+					"--bubble-dot-color",
+					event.show_icon_background_color ? event.color : "var(--primary-color)",
+				);
+				row.style.setProperty(
+					"--bubble-row-background",
+					event.show_background_color
+						? `color-mix(in srgb, ${event.color} 9%, var(--ha-card-background, var(--card-background-color)))`
+						: "transparent",
+				);
+			});
+			return;
+		}
+
+		const selector = layout === "pro" ? ".pro-event" : ".events > .event";
+		const cards = [...this.shadowRoot.querySelectorAll(selector)];
+		cards.forEach((card, index) => {
+			const event = events[index];
+			if (!event) return;
+			card.style.setProperty("--event-color", event.color);
+			card.style.setProperty(
+				"--event-background-mix",
+				event.show_background_color ? "9%" : "0%",
+			);
+			if (layout !== "pro") {
+				card.style.setProperty(
+					"--event-background-base",
+					"var(--ha-card-background, var(--card-background-color))",
+				);
+				card.style.setProperty(
+					"--event-border-color",
+					event.show_background_color ? event.color : "var(--divider-color)",
+				);
+			}
+		});
+	}
 
 	_render() {
 		if (!this.shadowRoot || !this._config || !this._hass) {
@@ -594,7 +717,7 @@ class EventSpotlightCard extends HTMLElement {
 							.filter((key) => key !== "date_time")
 							.map((key) => extraBlocks[key] || "")
 							.join("");
-						return `<div class="bubble-event-line" style="--bubble-dot-color:${this._escape(dotColor)};--bubble-row-background:${this._escape(rowBackground)}">
+						return `<div class="bubble-event-line">
 							<div class="bubble-main"><span class="bubble-dot"></span>${bubbleTime ? `<span class="bubble-time">${this._escape(bubbleTime)}</span>` : ""}<span class="event-title bubble-title">${this._escape(event.label)}${relativeDate ? ` <span class="bubble-relative">(${this._escape(relativeDate)})</span>` : ""}</span></div>
 							${extras ? `<div class="bubble-extra">${extras}</div>` : ""}
 						</div>`;
@@ -650,7 +773,7 @@ class EventSpotlightCard extends HTMLElement {
 						].filter(Boolean).join(" ");
 						const backgroundMix = event.show_background_color ? "9%" : "0%";
 
-						return `<div class="${eventClasses}" style="--event-color:${this._escape(event.color)};--event-background-mix:${backgroundMix}">
+						return `<div class="${eventClasses}">
 							<div class="event-title pro-title"><span class="pro-icon"><ha-icon icon="${this._escape(event.icon)}"></ha-icon></span>${this._escape(event.label)}</div>
 							<div class="pro-details">${orderedDetails}</div>
 						</div>`;
@@ -689,7 +812,7 @@ class EventSpotlightCard extends HTMLElement {
 						: "var(--divider-color)";
 
 					return `
-						<div class="${eventClasses}" style="--event-color:${this._escape(event.color)};--event-background-mix:${backgroundMix};--event-background-base:${backgroundBase};--event-border-color:${borderColor}">
+						<div class="${eventClasses}">
 							<div class="event-icon">
 								<ha-icon icon="${this._escape(event.icon)}"></ha-icon>
 							</div>
@@ -729,6 +852,8 @@ class EventSpotlightCard extends HTMLElement {
 				</div>
 			</ha-card>`;
 
+
+		this._applyDynamicStyles(visibleEvents, layout);
 	}
 
 	_baseStyles() {
@@ -1426,10 +1551,22 @@ class EventSpotlightCardEditor extends HTMLElement {
 			.join("");
 	}
 
+	_normalizeRuleAction(action) {
+		return EventSpotlightCard.RULE_ACTIONS.includes(action) ? action : "include";
+	}
+	_normalizeRuleField(field) {
+		return EventSpotlightCard.RULE_FIELDS.includes(field) ? field : "summary";
+	}
+	_normalizeRuleOperator(operator) {
+		return EventSpotlightCard.RULE_OPERATORS.includes(operator)
+			? operator
+			: "contains";
+	}
+
 	_ruleRow(rule, index) {
-		const action = rule.action || "include";
-		const field = rule.field || "summary";
-		const operator = rule.operator || "contains";
+		const action = this._normalizeRuleAction(rule.action);
+		const field = this._normalizeRuleField(rule.field);
+		const operator = this._normalizeRuleOperator(rule.operator);
 		const rawRuleName = String(rule.rule_name || "").trim();
 		const rawLabel = String(rule.label || "").trim();
 		const rawValue = String(rule.value || "").trim();
@@ -1556,14 +1693,15 @@ class EventSpotlightCardEditor extends HTMLElement {
 		return String(value)
 			.replaceAll("&", "&amp;")
 			.replaceAll('"', "&quot;")
+			.replaceAll("'", "&#039;")
 			.replaceAll("<", "&lt;")
 			.replaceAll(">", "&gt;");
 	}
 
 	_orderRules(rules) {
 		return [
-			...rules.filter((rule) => (rule.action || "include") === "exclude"),
-			...rules.filter((rule) => (rule.action || "include") !== "exclude"),
+			...rules.filter((rule) => this._normalizeRuleAction(rule.action) === "exclude"),
+			...rules.filter((rule) => this._normalizeRuleAction(rule.action) !== "exclude"),
 		];
 	}
 
@@ -2330,7 +2468,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 				if (document.activeElement !== element) element.value = rule[key] ?? "";
 			});
 
-			const action = rule.action || "include";
+			const action = this._normalizeRuleAction(rule.action);
 			const isExclude = action === "exclude";
 			const badge = row.querySelector(".rule-type");
 			if (badge) {
@@ -2463,7 +2601,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 		const sourceRule = this._config.rules?.[index];
 		if (!sourceRule) return;
 
-		const updated = { ...sourceRule, action: value };
+		const updated = { ...sourceRule, action: this._normalizeRuleAction(value) };
 
 		const rules = [...(this._config.rules || [])];
 		rules[index] = updated;
