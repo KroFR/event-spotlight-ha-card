@@ -13,7 +13,7 @@ const CARD_VERSION = "1.1.2";
 class EventSpotlightCard extends HTMLElement {
 	static TRANSLATIONS = {
 		en: {
-			title: "Event spotlight",
+			title: "Upcoming Events",
 			loading: "Loading events…",
 			empty: "No matching events",
 			today: "Today",
@@ -23,7 +23,7 @@ class EventSpotlightCard extends HTMLElement {
 			error: "Unable to load spotlight events",
 		},
 		fr: {
-			title: "Événements du calendrier",
+			title: "Prochains événements",
 			loading: "Chargement des événements…",
 			empty: "Aucun événement correspondant",
 			today: "Aujourd’hui",
@@ -304,7 +304,7 @@ class EventSpotlightCard extends HTMLElement {
 
 	_safeIcon(icon, fallback = "mdi:calendar") {
 		const value = String(icon || "").trim();
-		return /^(?:mdi|hacs|advanced):[a-z0-9_-]+$/i.test(value) ? value : fallback;
+		return /^(?:mdi|hacs|advanced-camera-card):[a-z0-9_-]+$/i.test(value) ? value : fallback;
 	}
 
 	_safeCustomColor(color) {
@@ -1527,7 +1527,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 
 	_safeIcon(icon, fallback = "mdi:calendar") {
 		const value = String(icon || "").trim();
-		return /^(?:mdi|hacs|advanced):[a-z0-9_-]+$/i.test(value) ? value : fallback;
+		return /^(?:mdi|hacs|advanced-camera-card):[a-z0-9_-]+$/i.test(value) ? value : fallback;
 	}
 
 	_supportsCardArrangement() {
@@ -1954,8 +1954,8 @@ class EventSpotlightCardEditor extends HTMLElement {
 					${this._sectionSummary(icons.general, "General")}
 					<div class="section-content">
 						<label>
-							Card name
-							<input data-config="name" type="text" placeholder="Event spotlight">
+							Card title
+							<input data-config="name" type="text" placeholder="Upcoming Events">
 						</label>
 						<div class="grid">
 							<label>
