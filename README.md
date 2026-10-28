@@ -12,7 +12,7 @@ Instead of displaying every event from your calendars, Event Spotlight Card uses
 
 | Light Theme | Dark Theme |
 |---|---|
-| image | image |
+| <img width="501" height="277" alt="image" src="https://github.com/user-attachments/assets/5220abff-1fbf-4a76-b8a5-7eba3e0073a3" /> | <img width="502" height="278" alt="image" src="https://github.com/user-attachments/assets/8a2547cf-3487-4b0d-9d3e-166d595494b6" /> |
 
 ## ✨ Features
 
@@ -261,7 +261,7 @@ The default layout. Events are displayed as compact Mushroom-style cards with an
 
 | Light Theme | Dark Theme |
 |---|---|
-| image | image |
+| <img width="501" height="277" alt="image" src="https://github.com/user-attachments/assets/5220abff-1fbf-4a76-b8a5-7eba3e0073a3" /> | <img width="502" height="278" alt="image" src="https://github.com/user-attachments/assets/8a2547cf-3487-4b0d-9d3e-166d595494b6" /> |
 
 ### Chips
 
@@ -269,7 +269,7 @@ Displays matching events as compact pill-shaped chips. Useful when dashboard spa
 
 | Light Theme | Dark Theme |
 |---|---|
-| image | image |
+| <img width="503" height="225" alt="image" src="https://github.com/user-attachments/assets/d54137be-ea3d-40f6-9fa5-24ef06b142f4" /> | <img width="505" height="226" alt="image" src="https://github.com/user-attachments/assets/ff679e36-9b57-48f2-abfc-05787058252f" /> |
 
 ### Bubble
 
@@ -277,7 +277,7 @@ Groups events by day and displays each event as a compact timeline entry. Event 
 
 | Light Theme | Dark Theme |
 |---|---|
-| image | image |
+| <img width="501" height="407" alt="image" src="https://github.com/user-attachments/assets/ed04553f-fbe0-48f9-8d54-4d6954c04a25" /> | <img width="503" height="408" alt="image" src="https://github.com/user-attachments/assets/e3e572c8-b8d0-450a-afca-3007e889e774" /> |
 
 ### Pro
 
@@ -285,7 +285,7 @@ Groups events by day in a full-width timeline-style layout. The day is displayed
 
 | Light Theme | Dark Theme |
 |---|---|
-| image | image |
+| <img width="500" height="579" alt="image" src="https://github.com/user-attachments/assets/8d991fb8-3856-40b2-9b6d-2119566c3cfa" /> | <img width="501" height="582" alt="image" src="https://github.com/user-attachments/assets/dba3ee21-088f-40fb-8f2b-35dd39d7622e" /> |
 
 ### Square
 
@@ -293,7 +293,7 @@ Displays matching events as responsive square-style tiles.
 
 | Light Theme | Dark Theme |
 |---|---|
-| image | image |
+| <img width="501" height="480" alt="image" src="https://github.com/user-attachments/assets/516473d5-a714-4556-9c4c-7c9c6bed4625" /> | <img width="502" height="481" alt="image" src="https://github.com/user-attachments/assets/dd62c880-2d38-4ee4-9b01-42d71a42d35c" /> |
 
 ## ↔️ Card arrangements
 
