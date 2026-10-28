@@ -102,12 +102,25 @@ class EventSpotlightCard extends HTMLElement {
 
 	set hass(hass) {
 		const initialHass = !this._hass;
+		const previousDarkMode = Boolean(this._hass?.themes?.darkMode);
+		const darkMode = Boolean(hass?.themes?.darkMode);
+		const themeChanged = !initialHass && previousDarkMode !== darkMode;
+
 		this._hass = hass;
-		if (!this.shadowRoot) this.attachShadow({ mode: "open" });
-		const key = JSON.stringify([this._calendarIds(), this._config?.days, this._rulesLoadKey()]);
+
+		if (!this.shadowRoot) {
+			this.attachShadow({ mode: "open" });
+		}
+
+		const key = JSON.stringify([
+			this._calendarIds(),
+			this._config?.days,
+			this._rulesLoadKey(),
+		]);
+
 		if (key !== this._loadKey) {
 			this._loadEvents();
-		} else if (initialHass) {
+		} else if (initialHass || themeChanged) {
 			this._render();
 		}
 	}
@@ -762,13 +775,14 @@ class EventSpotlightCard extends HTMLElement {
 				background: #f4f6f8;
 				box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 			}
-			.dark-mode .h-icon {
+			.card-content.dark-mode .h-icon {
 				background: var(--secondary-background-color);
 				box-shadow:
 					0 2px 8px rgba(0, 0, 0, 0.5),
 					0 0 0 1px rgba(255, 255, 255, 0.06);
 			}
 			.h-icon ha-icon {
+				--mdc-icon-size: 24px;
 				color: #0288d1;
 			}
 			.title {
