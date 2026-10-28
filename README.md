@@ -21,9 +21,11 @@ Instead of displaying every event from your calendars, Event Spotlight Card uses
 - Exclude unwanted events with Exclude rules
 - Match title, description, location, or calendar source
 - Match using `contains`, `equals`, `starts_with`, `ends_with`, or regular expressions
-- Customize matching events with labels, MDI icons, Home Assistant colors, or custom CSS colors
-- Six layouts: `Bubble`, `Chips`, `List`, `Mushroom`, `Pro`, and `Square`
-- Five alignment modes: `Left`, `Center`, `Right`, `Justified`, and `Stretched`
+- Customize matching events with labels, `mdi:`, `hacs:`, or `advanced-camera-card:` icons, Home Assistant colors, or custom CSS colors
+- Combine overlapping Include rules in order, with later rules overriding only the properties they define
+- Show only the first upcoming event matching a rule when repeated events should be hidden
+- Five layouts: `Bubble`, `Chips`, `Mushroom`, `Pro`, and `Square`
+- Eight card arrangements for Chips and Mushroom: `Left`, `Center`, `Right`, `Justified`, `Stretched`, `List`, `2 columns`, and `3 columns`
 - Optional relative date, event time, description, location, and calendar source
 - Reorder event details directly from the visual editor
 - Configure when today's all-day events disappear
@@ -115,7 +117,7 @@ The calendars are only event sources. Event rules decide which events are displa
 | `all_day_hide_time` | time | no | `23:59` | Time at which today's all-day events disappear |
 | `language` | string | no | `auto` | `auto`, `en`, or `fr` |
 | `layout` | string | no | `mushroom` | `bubble`, `chips`, `list`, `mushroom`, `pro`, or `square` |
-| `card_alignment` | string | no | `left` | `left`, `center`, `right`, `justified`, or `stretched` |
+| `card_arrangement` | string | no | `left` | Arrangement for Chips and Mushroom: `left`, `center`, `right`, `justified`, `stretched`, `list`, `2-columns`, or `3-columns` |
 | `show_title` | boolean | no | `true` | Show the card header |
 | `show_title_icon` | boolean | no | `true` | Show the icon in the card header |
 | `show_card_background` | boolean | no | `true` | Show the outer Home Assistant card background |
@@ -132,7 +134,7 @@ Rules are the core of Event Spotlight Card.
 
 ### Include rules
 
-An event must match at least one Include rule to appear. The first matching Include rule also supplies the event's optional label, icon, color, and background settings.
+An event must match at least one Include rule to appear. When several Include rules match, the card applies them from top to bottom. A later rule overrides only the appearance properties it defines, so broad calendar rules can provide defaults while more specific rules customize selected events.
 
 ```yaml
 rules:
@@ -161,15 +163,42 @@ rules:
 
 | Name | Values | Description |
 |---|---|---|
+| `rule_name` | string | Optional name shown only in the visual editor |
 | `action` | `include`, `exclude` | Include/customize or exclude a matching event |
 | `field` | `summary`, `description`, `location`, `calendar` | Event field to inspect |
 | `operator` | `contains`, `equals`, `starts_with`, `ends_with`, `regex` | Matching method |
 | `value` | string | Value or pattern to match |
 | `label` | string | Optional title replacing the calendar event summary |
-| `icon` | string | Optional MDI icon, for example `mdi:recycle` |
+| `icon` | string | Optional `mdi:`, `hacs:`, or `advanced-camera-card:` icon, for example `mdi:recycle` |
 | `color` | string | Optional Home Assistant or custom CSS color |
 | `show_icon_background_color` | boolean | Apply the selected color to the icon background |
 | `show_background_color` | boolean | Apply a subtle selected color to the event background |
+| `show_first_match_only` | boolean | Show only the first upcoming match. This is useful for recurring events such as waste collections. |
+
+### Rule priority and cascading
+
+Exclude rules always take priority and are kept at the top of the visual editor. Include rules are evaluated in their configured order and can be reordered in the editor.
+
+```yaml
+rules:
+  - action: include
+    rule_name: Personal calendar
+    field: calendar
+    operator: contains
+    value: Personal
+    icon: mdi:calendar
+    color: blue
+
+  - action: include
+    rule_name: Medical appointments
+    field: summary
+    operator: regex
+    value: '\b(doctor|dentist)\b'
+    icon: mdi:doctor
+    color: red
+```
+
+A matching medical event first receives the Personal calendar defaults, then the Medical appointments icon and color override them.
 
 ### Matching operators
 
@@ -190,7 +219,7 @@ Examples:
 | `birthday\|anniversary` | Birthday or anniversary anywhere in the selected field |
 | `^birthday` | Values starting with `birthday` |
 | `birthday$` | Values ending with `birthday` |
-| `\b(doctor\|physician\|dentist)\b` | Matches doctor, physician, or dentist as complete words |
+| `\b(doctor\\|dentist)\b` | Matches doctor or dentist as complete words |
 | `recycl(e\|ing\|ables)` | Different recycling terms |
 
 Example:
@@ -250,14 +279,6 @@ Groups events by day and displays each event as a compact timeline entry. Event 
 |---|---|
 | image | image |
 
-### List
-
-Displays one event per full-width row with the selected details underneath the event title.
-
-| Light Theme | Dark Theme |
-|---|---|
-| image | image |
-
 ### Pro
 
 Groups events by day in a full-width timeline-style layout. The day is displayed once, and event details use dedicated icons for time, description, location, and calendar source.
@@ -274,17 +295,20 @@ Displays matching events as responsive square-style tiles.
 |---|---|
 | image | image |
 
-## ↔️ Card alignment
+## ↔️ Card arrangements
 
-The card provides five alignment modes.
+Card arrangements are available for the `Chips` and `Mushroom` layouts. Other layouts use their own fixed presentation.
 
-| Alignment | Behavior |
+| Arrangement | Behavior |
 |---|---|
-| `left` | Align cards to the left |
-| `center` | Center cards |
-| `right` | Align cards to the right |
-| `justified` | Keep natural card widths and distribute free space between them |
-| `stretched` | Determine how many natural-width cards fit, then expand the columns evenly across the available width |
+| `left` | Keep natural card widths and align cards to the left |
+| `center` | Keep natural card widths and center cards |
+| `right` | Keep natural card widths and align cards to the right |
+| `justified` | Keep natural card widths and distribute free space between cards |
+| `stretched` | Use natural card widths to determine wrapping, then let cards on each row share the full available width |
+| `list` | Display one full-width card per row |
+| `2-columns` | Display cards in two equal-width columns and truncate overflowing text |
+| `3-columns` | Display cards in three equal-width columns and truncate overflowing text |
 
 ## 📅 All-day events
 
@@ -316,6 +340,7 @@ name: Waste collection
 calendars:
   - entity: calendar.waste_collection
 layout: mushroom
+card_arrangement: stretched
 rules:
   - action: include
     field: summary
@@ -359,7 +384,7 @@ rules:
   - action: include
     field: summary
     operator: regex
-    value: '\b(docteur|médecin|medecin|dentiste)\b'
+    value: '\b(doctor|dentist)\b'
     label: Medical appointment
     icon: mdi:doctor
     color: red
