@@ -24,7 +24,7 @@ Instead of displaying every event from your calendars, Event Spotlight Card uses
 - Customize matching events with labels, `mdi:`, `hacs:`, or `advanced-camera-card:` icons, Home Assistant colors, or custom CSS colors
 - Combine overlapping Include rules in order, with later rules overriding only the properties they define
 - Show only the first upcoming event matching a rule when repeated events should be hidden
-- Five layouts: `Bubble`, `Chips`, `Mushroom`, `Pro`, and `Square`
+- Six layouts: `Bubble`, `Chips`, `Mushroom`, `Pro`, `Square`, and `Ticker`
 - Eight card arrangements for Chips and Mushroom: `Left`, `Center`, `Right`, `Justified`, `Stretched`, `List`, `2 columns`, and `3 columns`
 - Optional relative date, event time, description, location, and calendar source
 - Reorder event details directly from the visual editor
@@ -111,16 +111,18 @@ The calendars are only event sources. Event rules decide which events are displa
 |---|---|---:|---|---|
 | `type` | string | yes | — | `custom:event-spotlight-card` |
 | `calendars` | list | yes | — | One or more `calendar.*` entities |
-| `name` | string | no | `Event spotlight` | Card header title |
+| `name` | string | no | `Upcoming Events` | Card header title |
 | `days` | number | no | `30` | Number of days to search ahead |
 | `update_interval` | number | no | `60` | Calendar refresh interval in minutes, from 1 to 1440 |
 | `all_day_hide_time` | time | no | `23:59` | Time at which today's all-day events disappear |
 | `language` | string | no | `auto` | `auto`, `en`, or `fr` |
-| `layout` | string | no | `mushroom` | `bubble`, `chips`, `list`, `mushroom`, `pro`, or `square` |
+| `layout` | string | no | `mushroom` | `bubble`, `chips`, `mushroom`, `pro`, `square`, or `ticker` |
 | `card_arrangement` | string | no | `left` | Arrangement for Chips and Mushroom: `left`, `center`, `right`, `justified`, `stretched`, `list`, `2-columns`, or `3-columns` |
 | `show_title` | boolean | no | `true` | Show the card header |
 | `show_title_icon` | boolean | no | `true` | Show the icon in the card header |
 | `show_card_background` | boolean | no | `true` | Show the outer Home Assistant card background |
+| `ticker_mushroom_shape` | boolean | no | `false` | Ticker only. Replace the pill shape with the standard Mushroom card radius |
+| `ticker_invert_light_colors` | boolean | no | `false` | Ticker only. In Light theme, use the default Home Assistant card background and the light grey secondary background for the date circle |
 | `show_relative_date` | boolean | no | `true` | Show relative dates such as `Today` and `In 3 days` |
 | `show_time` | boolean | no | `true` | Show event time when available |
 | `show_description` | boolean | no | `false` | Show event description when available |
@@ -295,6 +297,19 @@ Displays matching events as responsive square-style tiles.
 |---|---|
 | <img width="501" height="480" alt="image" src="https://github.com/user-attachments/assets/516473d5-a714-4556-9c4c-7c9c6bed4625" /> | <img width="502" height="481" alt="image" src="https://github.com/user-attachments/assets/dd62c880-2d38-4ee4-9b01-42d71a42d35c" /> |
 
+### Ticker
+
+Displays two upcoming events in a compact horizontal card. A date circle shows the date of the first visible event. When more than two events are available, the list scrolls vertically every three seconds and the date circle follows the first visible event.
+
+Ticker-specific options:
+
+- `ticker_mushroom_shape`: use the standard Mushroom card radius instead of the default pill shape.
+- `ticker_invert_light_colors`: in Light theme, use the default Home Assistant card background and the secondary light grey background for the date circle.
+
+| Light Theme | Dark Theme |
+|---|---|
+| <img width="500" height="162" alt="image" src="https://github.com/user-attachments/assets/49ee6baa-e7cb-4820-b0c3-9b2e3864a2b0" /> <img width="501" height="164" alt="image" src="https://github.com/user-attachments/assets/ad5d6821-e40e-42fe-8907-96ab5822fc62" /> | <img width="503" height="164" alt="image" src="https://github.com/user-attachments/assets/10d2ab17-9229-40ad-953e-75b049b88bff" /> <img width="503" height="166" alt="image" src="https://github.com/user-attachments/assets/aea685da-1a2f-49fb-bf2f-645f42bb5028" /> |
+
 ## ↔️ Card arrangements
 
 Card arrangements are available for the `Chips` and `Mushroom` layouts. Other layouts use their own fixed presentation.
@@ -329,6 +344,15 @@ update_interval: 15
 ```
 
 Use a shorter interval when calendar changes need to appear more quickly.
+
+## 🔒 Runtime safeguards
+
+The card applies defensive limits to keep the dashboard responsive and reduce unsafe input handling:
+
+- Calendar search range is clamped from 1 to 365 days.
+- Up to 500 matching events are rendered.
+- Regular expression patterns are limited to 256 characters and tested against at most 4,096 characters per field.
+- Rule actions, fields, operators, icon prefixes, and custom colors are validated before rendering.
 
 ## 📝 Usage examples
 
