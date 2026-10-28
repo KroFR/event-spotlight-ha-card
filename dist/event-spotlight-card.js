@@ -4,7 +4,7 @@
 *
 * License: MIT
 */
- 
+
 const CARD_VERSION = "1.1.3";
 
 /* ---------------------------------------------------------------------- */
@@ -44,6 +44,8 @@ class EventSpotlightCard extends HTMLElement {
 		show_title: true,
 		show_title_icon: true,
 		show_card_background: true,
+		ticker_mushroom_shape: false,
+		ticker_invert_light_colors: false,
 		show_calendar_source: false,
 		show_relative_date: true,
 		show_time: true,
@@ -103,10 +105,15 @@ class EventSpotlightCard extends HTMLElement {
 		this._loadKey = "";
 		this._allDayTimer = null;
 		this._updateTimer = null;
+		this._tickerTimer = null;
+		this._tickerIndex = 0;
+		this._activeTickerEvents = [];
 	}
+
 	disconnectedCallback() {
 		if (this._allDayTimer) clearTimeout(this._allDayTimer);
 		if (this._updateTimer) clearTimeout(this._updateTimer);
+		if (this._tickerTimer) clearInterval(this._tickerTimer);
 	}
 
 	setConfig(config) {
@@ -460,6 +467,7 @@ class EventSpotlightCard extends HTMLElement {
 			(rule) => this._normalizeRuleAction(rule.action) === "include" && rule.value && this._ruleMatches(event, rule),
 		);
 	}
+
 	async _loadEvents() {
 		if (!this._hass || !this._config || this._loading) return;
 		const calendars = this._config.calendars || [];
@@ -588,9 +596,63 @@ class EventSpotlightCard extends HTMLElement {
 	}
 
 
+	_tickerEvents(events) {
+		return events;
+	}
+
+	_updateTickerDate(event) {
+		const day = this.shadowRoot?.querySelector(".ticker-day");
+		const month = this.shadowRoot?.querySelector(".ticker-month");
+		if (!event || !day || !month) return;
+		const lang = this._lang();
+		day.textContent = new Intl.DateTimeFormat(lang, { day: "2-digit" })
+			.format(event.start_date);
+		month.textContent = new Intl.DateTimeFormat(lang, { month: "short" })
+			.format(event.start_date)
+			.replace(/\.$/, "");
+	}
+
+	_stopTicker() {
+		if (this._tickerTimer) clearInterval(this._tickerTimer);
+		this._tickerTimer = null;
+		this._tickerIndex = 0;
+		this._activeTickerEvents = [];
+	}
+
+	_startTicker() {
+		this._stopTicker();
+		const track = this.shadowRoot?.querySelector(".ticker-track");
+		const rows = [...(track?.querySelectorAll(".ticker-event") || [])];
+		if (!track || rows.length <= 2) return;
+		this._tickerTimer = setInterval(() => {
+			const maxIndex = rows.length - 2;
+			this._tickerIndex = this._tickerIndex >= maxIndex ? 0 : this._tickerIndex + 1;
+			track.style.transform = `translateY(-${this._tickerIndex * 26}px)`;
+			this._updateTickerDate(this._activeTickerEvents[this._tickerIndex]);
+		}, 3000);
+	}
+
 	_applyDynamicStyles(events, layout) {
 		if (!this.shadowRoot || !events.length) return;
 
+		if (layout === "ticker") {
+			const tickerEvents = this._tickerEvents(events);
+			this.shadowRoot.querySelectorAll(".ticker-event").forEach((row, index) => {
+				const event = tickerEvents[index];
+				if (!event) return;
+				row.style.setProperty(
+					"--ticker-dot-color",
+					event.show_icon_background_color ? event.color : "#0288d1",
+				);
+				row.style.setProperty(
+					"--ticker-event-background",
+					event.show_background_color
+						? `color-mix(in srgb, ${event.color} 9%, transparent)`
+						: "transparent",
+				);
+			});
+			return;
+		}
 		if (layout === "bubble") {
 			const rows = [...this.shadowRoot.querySelectorAll(".bubble-event-line")];
 			rows.forEach((row, index) => {
@@ -640,7 +702,7 @@ class EventSpotlightCard extends HTMLElement {
 
 		const lang = this._lang();
 		const configuredLayout = this._config.layout || EventSpotlightCard.FIELD_DEFAULTS.layout;
-		const layout = ["bubble", "chips", "mushroom", "pro", "square"].includes(configuredLayout)
+		const layout = ["bubble", "chips", "mushroom", "pro", "square", "ticker"].includes(configuredLayout)
 			? configuredLayout
 			: EventSpotlightCard.FIELD_DEFAULTS.layout;
 		const configuredArrangement = this._config.card_arrangement || EventSpotlightCard.FIELD_DEFAULTS.card_arrangement;
@@ -674,7 +736,57 @@ class EventSpotlightCard extends HTMLElement {
 				</div>`;
 		} else {
 			let eventBlocks = "";
-			if (layout === "bubble") {
+			if (layout === "ticker") {
+				const tickerEvents = this._tickerEvents(visibleEvents);
+				this._activeTickerEvents = tickerEvents;
+				const firstEvent = tickerEvents[0];
+				const day = new Intl.DateTimeFormat(lang, { day: "2-digit" })
+					.format(firstEvent.start_date);
+				const month = new Intl.DateTimeFormat(lang, { month: "short" })
+					.format(firstEvent.start_date)
+					.replace(/\.$/, "");
+				const showRelativeDate = this._config.show_relative_date ?? EventSpotlightCard.FIELD_DEFAULTS.show_relative_date;
+				const showTime = this._config.show_time ?? EventSpotlightCard.FIELD_DEFAULTS.show_time;
+				const showDescription = this._config.show_description ?? EventSpotlightCard.FIELD_DEFAULTS.show_description;
+				const showLocation = this._config.show_location ?? EventSpotlightCard.FIELD_DEFAULTS.show_location;
+				const showCalendarSource = this._config.show_calendar_source ?? EventSpotlightCard.FIELD_DEFAULTS.show_calendar_source;
+				const rows = tickerEvents.map((event) => {
+					const dateTime = [];
+					dateTime.push(
+						showRelativeDate
+							? this._relativeDateLabel(event, lang)
+							: new Intl.DateTimeFormat(lang, {
+								weekday: "short",
+								day: "numeric",
+								month: "short",
+							}).format(event.start_date),
+					);
+					if (showTime && !/^\d{4}-\d{2}-\d{2}$/.test(event.start || "")) {
+						dateTime.push(new Intl.DateTimeFormat(lang, { hour: "2-digit", minute: "2-digit" }).format(event.start_date));
+					}
+					const middleDetails = {
+						description: showDescription ? event.description : "",
+						location: showLocation ? event.location : "",
+						calendar: showCalendarSource ? event.calendar_name : "",
+					};
+					const detailItems = this._displayOrder()
+						.filter((key) => key !== "date_time")
+						.map((key) => middleDetails[key])
+						.filter(Boolean)
+						.map((value) => `<span class="ticker-detail">${this._escape(value)}</span>`)
+						.join("");
+					const dateMeta = dateTime.length
+						? `<span class="ticker-meta">${this._escape(dateTime.join(" · "))}</span>`
+						: "";
+					return `<div class="ticker-event"><span class="ticker-dot"></span><span class="ticker-title">${this._escape(event.label)}</span>${detailItems ? `<span class="ticker-details">${detailItems}</span>` : ""}${dateMeta}</div>`;
+				}).join("");
+				const tickerClasses = [
+					"ticker-card",
+					this._config.ticker_mushroom_shape ? "ticker-mushroom-shape" : "",
+					this._config.ticker_invert_light_colors ? "ticker-invert-light-colors" : "",
+				].filter(Boolean).join(" ");
+				eventBlocks = `<div class="${tickerClasses}"><div class="ticker-date"><span class="ticker-day">${this._escape(day)}</span><span class="ticker-month">${this._escape(month)}</span></div><div class="ticker-viewport"><div class="ticker-track">${rows}</div></div></div>`;
+			} else if (layout === "bubble") {
 				const groups = new Map();
 				visibleEvents.forEach((event) => {
 					const d = event.start_date;
@@ -854,12 +966,14 @@ class EventSpotlightCard extends HTMLElement {
 
 
 		this._applyDynamicStyles(visibleEvents, layout);
+		if (layout === "ticker") this._startTicker();
+		else this._stopTicker();
 	}
 
 	_baseStyles() {
 		return `
 			/* ------------------------------------------------------------------ */
-			/* Card shell and header                                               */
+			/* Card shell and header                                              */
 			/* ------------------------------------------------------------------ */
 			:host {
 				display: block;
@@ -917,7 +1031,7 @@ class EventSpotlightCard extends HTMLElement {
 			}
 
 			/* ------------------------------------------------------------------ */
-			/* Bubble layout                                                       */
+			/* Bubble layout                                                      */
 			/* ------------------------------------------------------------------ */
 			.events.bubble {
 				display: grid;
@@ -1008,7 +1122,7 @@ class EventSpotlightCard extends HTMLElement {
 			}
 
 			/* ------------------------------------------------------------------ */
-			/* Chips layout                                                        */
+			/* Chips layout                                                       */
 			/* ------------------------------------------------------------------ */
 			.events.chips {
 				display: flex;
@@ -1072,7 +1186,7 @@ class EventSpotlightCard extends HTMLElement {
 			}
 
 			/* ------------------------------------------------------------------ */
-			/* Mushroom layout                                                     */
+			/* Mushroom layout                                                    */
 			/* ------------------------------------------------------------------ */
 			.events.mushroom {
 				display: flex;
@@ -1145,7 +1259,7 @@ class EventSpotlightCard extends HTMLElement {
 			}
 
 			/* ------------------------------------------------------------------ */
-			/* Pro layout                                                          */
+			/* Pro layout                                                         */
 			/* ------------------------------------------------------------------ */
 			.events.pro {
 				display: grid;
@@ -1259,7 +1373,7 @@ class EventSpotlightCard extends HTMLElement {
 			}
 
 			/* ------------------------------------------------------------------ */
-			/* Square layout                                                       */
+			/* Square layout                                                      */
 			/* ------------------------------------------------------------------ */
 			.events.square {
 				display: grid;
@@ -1317,6 +1431,127 @@ class EventSpotlightCard extends HTMLElement {
 			}
 			.square .event-date {
 				font-weight: 600;
+			}
+
+			/* ------------------------------------------------------------------ */
+			/* Ticker layout                                                      */
+			/* ------------------------------------------------------------------ */
+			.events.ticker {
+				display: block;
+				width: 100%;
+			}
+			.ticker-card {
+				display: grid;
+				grid-template-columns: 62px minmax(0, 1fr);
+				align-items: center;
+				box-sizing: border-box;
+				width: 100%;
+				min-height: 66px;
+				padding: 5px 12px 5px 6px;
+				border: 1px solid var(--divider-color);
+				border-radius: 999px;
+				background: var(--secondary-background-color);
+			}
+			.ticker-card.ticker-mushroom-shape {
+				border-radius: var(--ha-card-border-radius, 12px);
+			}
+			.card-content:not(.dark-mode) .ticker-card.ticker-invert-light-colors {
+				background: var(--ha-card-background, var(--card-background-color));
+			}
+			.card-content:not(.dark-mode) .ticker-card.ticker-invert-light-colors .ticker-date {
+				background: var(--secondary-background-color);
+			}
+			.ticker-date {
+				display: grid;
+				align-content: center;
+				justify-items: center;
+				width: 52px;
+				height: 52px;
+				border-radius: 50%;
+				background: var(--ha-card-background, var(--card-background-color));
+				box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+				line-height: 1;
+			}
+			.ticker-day {
+				font-size: 22px;
+				font-weight: 700;
+				color: var(--primary-text-color);
+			}
+			.ticker-month {
+				margin-top: 2px;
+				font-size: 11px;
+				font-weight: 500;
+				text-transform: lowercase;
+				color: var(--secondary-text-color);
+			}
+			.ticker-viewport {
+				height: 52px;
+				overflow: hidden;
+			}
+			.ticker-track {
+				display: grid;
+				grid-auto-rows: 26px;
+				transition: transform 450ms ease;
+			}
+			.ticker-event {
+				display: flex;
+				align-items: center;
+				gap: 7px;
+				min-width: 0;
+				height: 26px;
+				padding: 0 5px;
+				box-sizing: border-box;
+				border-radius: 6px;
+				font-size: 14px;
+				background: var(--ticker-event-background, transparent);
+			}
+			.ticker-dot {
+				width: 14px;
+				height: 14px;
+				flex: 0 0 14px;
+				border-radius: 50%;
+				background: var(--ticker-dot-color, #0288d1);
+			}
+			.ticker-title {
+				flex: 0 0 auto;
+				font-weight: 600;
+				white-space: nowrap;
+				color: var(--primary-text-color);
+			}
+			.ticker-details {
+				display: flex;
+				align-items: center;
+				gap: 0;
+				overflow: hidden;
+				min-width: 0;
+				flex: 1 1 0;
+				color: var(--secondary-text-color);
+			}
+			.ticker-detail {
+				overflow: hidden;
+				min-width: 0;
+				font-size: 12px;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+			}
+			.ticker-detail::before {
+				content: " · ";
+				padding: 0 4px;
+				color: var(--secondary-text-color);
+			}
+			.ticker-meta {
+				margin-left: auto;
+				padding-left: 8px;
+				flex: 0 0 auto;
+				font-size: 12px;
+				font-weight: 800;
+				white-space: nowrap;
+				color: var(--secondary-text-color);
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.ticker-track {
+					transition: none;
+				}
 			}
 
 			/* ------------------------------------------------------------------ */
@@ -1440,7 +1675,6 @@ class EventSpotlightCardEditor extends HTMLElement {
 		rules: "mdi:format-list-checks",
 	};
 
-
 	constructor() {
 		super();
 		this._rendered = false;
@@ -1517,18 +1751,20 @@ class EventSpotlightCardEditor extends HTMLElement {
 	}
 
 	_appearanceRows() {
-		const isBubble = (this._config.layout || EventSpotlightCard.FIELD_DEFAULTS.layout) === "bubble";
+		const layout = this._config.layout || EventSpotlightCard.FIELD_DEFAULTS.layout;
+		const isBubble = layout === "bubble";
+		const locksDateTime = isBubble || layout === "ticker";
 		const rows = {
 			date_time: `<div class="appearance-switches">${this._switchRow("show_relative_date", "Show relative date")}${this._switchRow("show_time", "Show event time")}</div>`,
 			description: this._switchRow("show_description", "Show description"),
 			location: this._switchRow("show_location", "Show location"),
 			calendar: this._switchRow("show_calendar_source", "Show calendar name"),
 		};
-		const order = isBubble
+		const order = locksDateTime
 			? ["date_time", ...this._displayOrder().filter((key) => key !== "date_time")]
 			: this._displayOrder();
 		return order.map((key) => {
-			const locked = isBubble && key === "date_time";
+			const locked = locksDateTime && key === "date_time";
 			return `<div class="appearance-order-row${locked ? " locked" : ""}" draggable="${locked ? "false" : "true"}" data-display-key="${key}"><ha-icon class="drag-handle" icon="${locked ? "mdi:lock-outline" : "mdi:drag"}"></ha-icon><div class="appearance-order-content">${rows[key]}</div></div>`;
 		}).join("");
 	}
@@ -1888,6 +2124,11 @@ class EventSpotlightCardEditor extends HTMLElement {
 					background: transparent;
 					cursor: pointer;
 				}
+				.ticker-appearance-options {
+					display: grid;
+					gap: 2px;
+					padding-left: 16px;
+				}
 				.appearance-order-list { display:grid; gap:8px; }
 				.appearance-order-row { display:grid; grid-template-columns:28px minmax(0,1fr); align-items:center; gap:8px; padding:8px; border:1px solid var(--divider-color); border-radius:9px; background:var(--secondary-background-color); }
 				.appearance-order-row.dragging { opacity:.45; }
@@ -2122,6 +2363,11 @@ class EventSpotlightCardEditor extends HTMLElement {
 						${this._switchRow("show_title", "Show card header")}
 						${this._switchRow("show_title_icon", "Show header icon")}
 						${this._switchRow("show_card_background", "Show card background")}
+						${(this._config.layout || EventSpotlightCard.FIELD_DEFAULTS.layout) === "ticker" ? `
+							<div class="ticker-appearance-options">
+								${this._switchRow("ticker_mushroom_shape", "Use Mushroom card shape")}
+								${this._switchRow("ticker_invert_light_colors", "Invert light theme colors")}
+							</div>` : ""}
 						<div class="appearance-order-list">${this._appearanceRows()}</div>
 					</div>
 				</details>
@@ -2690,6 +2936,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 							{ value: "mushroom", label: "Mushroom" },
 							{ value: "pro", label: "Pro" },
 							{ value: "square", label: "Square" },
+							{ value: "ticker", label: "Ticker" },
 						],
 					},
 				};
