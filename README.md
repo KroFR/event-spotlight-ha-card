@@ -130,6 +130,61 @@ The calendars are only event sources. Event rules decide which events are displa
 | `show_calendar_source` | boolean | no | `false` | Show the source calendar name |
 | `display_order` | list | no | `date_time`, `description`, `location`, `calendar` | Order of event details |
 
+## 🎨 Layouts
+
+### Mushroom
+
+The default layout. Events are displayed as compact Mushroom-style cards with an icon, title, and selected details.
+
+| Light Theme | Dark Theme |
+|---|---|
+| <img width="501" height="277" alt="image" src="https://github.com/user-attachments/assets/5220abff-1fbf-4a76-b8a5-7eba3e0073a3" /> | <img width="502" height="278" alt="image" src="https://github.com/user-attachments/assets/8a2547cf-3487-4b0d-9d3e-166d595494b6" /> |
+
+### Chips
+
+Displays matching events as compact pill-shaped chips. Useful when dashboard space is limited.
+
+| Light Theme | Dark Theme |
+|---|---|
+| <img width="503" height="225" alt="image" src="https://github.com/user-attachments/assets/d54137be-ea3d-40f6-9fa5-24ef06b142f4" /> | <img width="505" height="226" alt="image" src="https://github.com/user-attachments/assets/ff679e36-9b57-48f2-abfc-05787058252f" /> |
+
+### Bubble
+
+Groups events by day and displays each event as a compact timeline entry. Event time and relative date stay on the first line. Description, location, and calendar source follow the configured display order.
+
+| Light Theme | Dark Theme |
+|---|---|
+| <img width="501" height="407" alt="image" src="https://github.com/user-attachments/assets/ed04553f-fbe0-48f9-8d54-4d6954c04a25" /> | <img width="503" height="408" alt="image" src="https://github.com/user-attachments/assets/e3e572c8-b8d0-450a-afca-3007e889e774" /> |
+
+### Pro
+
+Groups events by day in a full-width timeline-style layout. The day is displayed once, and event details use dedicated icons for time, description, location, and calendar source.
+
+| Light Theme | Dark Theme |
+|---|---|
+| <img width="501" height="706" alt="image" src="https://github.com/user-attachments/assets/774b8d09-aae1-44b6-ae2a-8255860cceed" /> | <img width="501" height="708" alt="image" src="https://github.com/user-attachments/assets/e498ea7a-c439-4461-9e70-aa0c9d49d165" /> |
+
+### Square
+
+Displays matching events as responsive square-style tiles.
+
+| Light Theme | Dark Theme |
+|---|---|
+| <img width="501" height="480" alt="image" src="https://github.com/user-attachments/assets/516473d5-a714-4556-9c4c-7c9c6bed4625" /> | <img width="502" height="481" alt="image" src="https://github.com/user-attachments/assets/dd62c880-2d38-4ee4-9b01-42d71a42d35c" /> |
+
+### Ticker
+
+Displays two upcoming events in a compact horizontal card. A date circle shows the date of the first visible event. When more than two events are available, the list scrolls vertically every three seconds and the date circle follows the first visible event.
+
+Ticker-specific options:
+
+- `ticker_mushroom_shape`: use the standard Mushroom card radius instead of the default pill shape.
+- `ticker_invert_light_colors`: in Light theme, use the default Home Assistant card background and the secondary light grey background for the date circle.
+
+| Light Theme | Dark Theme |
+|---|---|
+| <img width="500" height="162" alt="image" src="https://github.com/user-attachments/assets/49ee6baa-e7cb-4820-b0c3-9b2e3864a2b0" /> <img width="501" height="164" alt="image" src="https://github.com/user-attachments/assets/ad5d6821-e40e-42fe-8907-96ab5822fc62" /> | <img width="503" height="164" alt="image" src="https://github.com/user-attachments/assets/10d2ab17-9229-40ad-953e-75b049b88bff" /> <img width="503" height="166" alt="image" src="https://github.com/user-attachments/assets/aea685da-1a2f-49fb-bf2f-645f42bb5028" /> |
+
 ## 🎯 Event rules
 
 Rules are the core of Event Spotlight Card.
@@ -255,61 +310,6 @@ With transparency:
 color: "#ff000080"
 ```
 
-## 🎨 Layouts
-
-### Mushroom
-
-The default layout. Events are displayed as compact Mushroom-style cards with an icon, title, and selected details.
-
-| Light Theme | Dark Theme |
-|---|---|
-| <img width="501" height="277" alt="image" src="https://github.com/user-attachments/assets/5220abff-1fbf-4a76-b8a5-7eba3e0073a3" /> | <img width="502" height="278" alt="image" src="https://github.com/user-attachments/assets/8a2547cf-3487-4b0d-9d3e-166d595494b6" /> |
-
-### Chips
-
-Displays matching events as compact pill-shaped chips. Useful when dashboard space is limited.
-
-| Light Theme | Dark Theme |
-|---|---|
-| <img width="503" height="225" alt="image" src="https://github.com/user-attachments/assets/d54137be-ea3d-40f6-9fa5-24ef06b142f4" /> | <img width="505" height="226" alt="image" src="https://github.com/user-attachments/assets/ff679e36-9b57-48f2-abfc-05787058252f" /> |
-
-### Bubble
-
-Groups events by day and displays each event as a compact timeline entry. Event time and relative date stay on the first line. Description, location, and calendar source follow the configured display order.
-
-| Light Theme | Dark Theme |
-|---|---|
-| <img width="501" height="407" alt="image" src="https://github.com/user-attachments/assets/ed04553f-fbe0-48f9-8d54-4d6954c04a25" /> | <img width="503" height="408" alt="image" src="https://github.com/user-attachments/assets/e3e572c8-b8d0-450a-afca-3007e889e774" /> |
-
-### Pro
-
-Groups events by day in a full-width timeline-style layout. The day is displayed once, and event details use dedicated icons for time, description, location, and calendar source.
-
-| Light Theme | Dark Theme |
-|---|---|
-| <img width="501" height="706" alt="image" src="https://github.com/user-attachments/assets/774b8d09-aae1-44b6-ae2a-8255860cceed" /> | <img width="501" height="708" alt="image" src="https://github.com/user-attachments/assets/e498ea7a-c439-4461-9e70-aa0c9d49d165" /> |
-
-### Square
-
-Displays matching events as responsive square-style tiles.
-
-| Light Theme | Dark Theme |
-|---|---|
-| <img width="501" height="480" alt="image" src="https://github.com/user-attachments/assets/516473d5-a714-4556-9c4c-7c9c6bed4625" /> | <img width="502" height="481" alt="image" src="https://github.com/user-attachments/assets/dd62c880-2d38-4ee4-9b01-42d71a42d35c" /> |
-
-### Ticker
-
-Displays two upcoming events in a compact horizontal card. A date circle shows the date of the first visible event. When more than two events are available, the list scrolls vertically every three seconds and the date circle follows the first visible event.
-
-Ticker-specific options:
-
-- `ticker_mushroom_shape`: use the standard Mushroom card radius instead of the default pill shape.
-- `ticker_invert_light_colors`: in Light theme, use the default Home Assistant card background and the secondary light grey background for the date circle.
-
-| Light Theme | Dark Theme |
-|---|---|
-| <img width="500" height="162" alt="image" src="https://github.com/user-attachments/assets/49ee6baa-e7cb-4820-b0c3-9b2e3864a2b0" /> <img width="501" height="164" alt="image" src="https://github.com/user-attachments/assets/ad5d6821-e40e-42fe-8907-96ab5822fc62" /> | <img width="503" height="164" alt="image" src="https://github.com/user-attachments/assets/10d2ab17-9229-40ad-953e-75b049b88bff" /> <img width="503" height="166" alt="image" src="https://github.com/user-attachments/assets/aea685da-1a2f-49fb-bf2f-645f42bb5028" /> |
-
 ## ↔️ Card arrangements
 
 Card arrangements are available for the `Chips` and `Mushroom` layouts. Other layouts use their own fixed presentation.
@@ -324,26 +324,6 @@ Card arrangements are available for the `Chips` and `Mushroom` layouts. Other la
 | `list` | Display one full-width card per row |
 | `2-columns` | Display cards in two equal-width columns and truncate overflowing text |
 | `3-columns` | Display cards in three equal-width columns and truncate overflowing text |
-
-## 📅 All-day events
-
-`all_day_hide_time` controls when an all-day event occurring today disappears from the card. The default is `23:59`.
-
-```yaml
-all_day_hide_time: "18:00"
-```
-
-In this example, today's all-day matching events disappear after 18:00.
-
-## 🔄 Refresh interval
-
-The default update interval is 60 minutes. Valid values are from 1 to 1440 minutes.
-
-```yaml
-update_interval: 15
-```
-
-Use a shorter interval when calendar changes need to appear more quickly.
 
 ## 🔒 Runtime safeguards
 
