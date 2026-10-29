@@ -110,10 +110,27 @@ class EventSpotlightCard extends HTMLElement {
 		this._activeTickerEvents = [];
 	}
 
+	connectedCallback() {
+		if (!this._config || !this._hass) return;
+
+		this._scheduleUpdate();
+
+		const layout =
+			this._config.layout || EventSpotlightCard.FIELD_DEFAULTS.layout;
+
+		if (layout === "ticker") {
+			this._startTicker();
+		}
+	}
+
 	disconnectedCallback() {
 		if (this._allDayTimer) clearTimeout(this._allDayTimer);
 		if (this._updateTimer) clearTimeout(this._updateTimer);
 		if (this._tickerTimer) clearInterval(this._tickerTimer);
+
+		this._allDayTimer = null;
+		this._updateTimer = null;
+		this._tickerTimer = null;
 	}
 
 	setConfig(config) {
