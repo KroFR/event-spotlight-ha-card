@@ -276,7 +276,7 @@ Examples:
 | `birthday\|anniversary` | Birthday or anniversary anywhere in the selected field |
 | `^birthday` | Values starting with `birthday` |
 | `birthday$` | Values ending with `birthday` |
-| `\b(doctor|dentist)\b` | Matches doctor or dentist as complete words |
+| `\b(doctor\|dentist)\b` | Matches doctor or dentist as complete words |
 | `recycl(e\|ing\|ables)` | Different recycling terms |
 
 Example:
