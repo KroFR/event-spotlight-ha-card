@@ -250,7 +250,7 @@ rules:
     rule_name: Medical appointments
     field: summary
     operator: regex
-    value: '\b(doctor\|dentist)\b'
+    value: '\b(doctor|dentist)\b'
     icon: mdi:doctor
     color: red
 ```
@@ -276,7 +276,7 @@ Examples:
 | `birthday\|anniversary` | Birthday or anniversary anywhere in the selected field |
 | `^birthday` | Values starting with `birthday` |
 | `birthday$` | Values ending with `birthday` |
-| `\b(doctor\\|dentist)\b` | Matches doctor or dentist as complete words |
+| `\b(doctor|dentist)\b` | Matches doctor or dentist as complete words |
 | `recycl(e\|ing\|ables)` | Different recycling terms |
 
 Example:
@@ -286,7 +286,7 @@ rules:
   - action: include
     field: summary
     operator: regex
-    value: '\b(doctor\|dentist\b'
+    value: '\b(doctor|dentist)\b'
     label: Medical appointment
     icon: mdi:doctor
     color: red
