@@ -533,16 +533,46 @@ class EventSpotlightCard extends HTMLElement {
 		return now < hideAt;
 	}
 
-	_scheduleAllDayRefresh() {
+	_isEventVisible(event, now = new Date()) {
+		const allDay = /^\d{4}-\d{2}-\d{2}$/.test(event.start || "");
+		if (allDay) return this._isAllDayEventVisible(event, now);
+		return now < event.start_date;
+	}
+
+	_scheduleVisibilityRefresh(events, now = new Date()) {
 		if (this._allDayTimer) clearTimeout(this._allDayTimer);
-		const now = new Date();
+		this._allDayTimer = null;
+
+		const refreshTimes = [];
 		const [hour, minute] = this._allDayHideTime().split(":").map(Number);
-		const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
-		if (next <= now) next.setDate(next.getDate() + 1);
+
+		events.forEach((event) => {
+			const allDay = /^\d{4}-\d{2}-\d{2}$/.test(event.start || "");
+			if (allDay) {
+				const hideAt = new Date(
+					event.start_date.getFullYear(),
+					event.start_date.getMonth(),
+					event.start_date.getDate(),
+					hour,
+					minute,
+					0,
+					0,
+				).getTime();
+				if (hideAt > now.getTime()) refreshTimes.push(hideAt);
+				return;
+			}
+
+			const startAt = event.start_date.getTime();
+			if (startAt > now.getTime()) refreshTimes.push(startAt);
+		});
+
+		refreshTimes.sort((a, b) => a - b);
+		if (!refreshTimes.length) return;
+
 		this._allDayTimer = setTimeout(() => {
 			this._allDayTimer = null;
 			this._render();
-		}, Math.min(next.getTime() - now.getTime() + 1000, 2147483647));
+		}, Math.min(refreshTimes[0] - now.getTime() + 250, 2147483647));
 	}
 
 	_passes(event) {
@@ -813,9 +843,10 @@ class EventSpotlightCard extends HTMLElement {
 			? configuredArrangement
 			: EventSpotlightCard.FIELD_DEFAULTS.card_arrangement;
 		const darkMode = Boolean(this._hass?.themes?.darkMode);
-		const visibleEvents = this._events.filter((event) => this._isAllDayEventVisible(event));
-		this._scheduleAllDayRefresh();
-		this._scheduleBlinkRefresh(visibleEvents);
+		const now = new Date();
+		const visibleEvents = this._events.filter((event) => this._isEventVisible(event, now));
+		this._scheduleVisibilityRefresh(this._events, now);
+		this._scheduleBlinkRefresh(visibleEvents, now);
 
 		let contentBlock = "";
 
