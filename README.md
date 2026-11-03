@@ -250,7 +250,7 @@ rules:
     rule_name: Medical appointments
     field: summary
     operator: regex
-    value: '\b(doctor|dentist)\b'
+    value: '\b(doctor\|dentist)\b'
     icon: mdi:doctor
     color: red
 ```
@@ -286,7 +286,7 @@ rules:
   - action: include
     field: summary
     operator: regex
-    value: '\b(doctor\|physician\|dentist\b'
+    value: '\b(doctor\|dentist\b'
     label: Medical appointment
     icon: mdi:doctor
     color: red
