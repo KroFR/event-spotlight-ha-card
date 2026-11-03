@@ -349,78 +349,40 @@ class EventSpotlightCard extends HTMLElement {
 			calendar_name: this._limitText(calendarName, EventSpotlightCard.SECURITY_LIMITS.calendar),
 			start_date: this._date(event.start),
 		};
-		const matches = (this._config.rules || [])
-			.map((rule, index) => ({ rule, index }))
-			.filter(
-				({ rule }) =>
-					this._normalizeRuleAction(rule.action) === "include" &&
-					this._ruleMatches(base, rule),
-			);
-		const matchedRules = matches.map(({ rule }) => rule);
-		const primaryMatch = matches.at(-1);
-
-		const appearance = matchedRules.reduce((result, rule) => {
-			const next = { ...result };
-			const label = String(rule.label || "").trim();
-
-			if (label) {
-				next.label = label;
-			}
-			if (rule.icon) {
-				next.icon = rule.icon;
-			}
-			if (rule.color) {
-				next.color = rule.color;
-			}
-			if (rule.show_icon_background_color !== undefined) {
-				next.show_icon_background_color = rule.show_icon_background_color;
-			}
-			if (rule.show_background_color !== undefined) {
-				next.show_background_color = rule.show_background_color;
-			}
-			if (rule.blink_background !== undefined) {
-				next.blink_background = rule.blink_background;
-			}
-			if (rule.pulse_background !== undefined) {
-				next.pulse_background = rule.pulse_background;
-			}
-			if (rule.blink_start_minutes !== undefined) {
-				next.blink_start_minutes = rule.blink_start_minutes;
-			}
-			if (rule.pulse_start_minutes !== undefined) {
-				next.pulse_start_minutes = rule.pulse_start_minutes;
-			}
-
-			return next;
-		}, {});
+		const rules = this._config.rules || [];
+		const matchIndex = rules.findIndex(
+			(rule) =>
+				this._normalizeRuleAction(rule.action) === "include" &&
+				Boolean(rule.value) &&
+				this._ruleMatches(base, rule),
+		);
+		const match = matchIndex >= 0 ? rules[matchIndex] : null;
 
 		return {
 			...base,
-			label: appearance.label || event.summary || calendarName,
+			label: String(match?.label || "").trim() || base.summary || calendarName,
 			icon: this._safeIcon(
-				appearance.icon || calendar.icon || state?.attributes?.icon,
+				match?.icon || calendar.icon || state?.attributes?.icon,
 			),
-			color: this._resolveUiColor(appearance.color),
-			show_icon_background_color:
-				appearance.show_icon_background_color !== false,
-			show_background_color:
-				appearance.show_background_color !== false,
-			blink_background: appearance.blink_background === true,
-			pulse_background: appearance.pulse_background === true,
+			color: this._resolveUiColor(match?.color),
+			show_icon_background_color: match?.show_icon_background_color !== false,
+			show_background_color: match?.show_background_color !== false,
+			blink_background: match?.blink_background === true,
+			pulse_background: match?.pulse_background === true,
 			blink_start_minutes: this._clampedNumber(
-				appearance.blink_start_minutes,
+				match?.blink_start_minutes,
 				30,
 				30,
 				360,
 			),
 			pulse_start_minutes: this._clampedNumber(
-				appearance.pulse_start_minutes,
+				match?.pulse_start_minutes,
 				30,
 				30,
 				360,
 			),
-			primary_rule_index: primaryMatch?.index ?? -1,
-			show_first_match_only: primaryMatch?.rule?.show_first_match_only === true,
+			primary_rule_index: matchIndex,
+			show_first_match_only: match?.show_first_match_only === true,
 		};
 	}
 
@@ -585,12 +547,20 @@ class EventSpotlightCard extends HTMLElement {
 
 	_passes(event) {
 		const rules = this._config.rules || [];
+
 		const excluded = rules.some(
-			(rule) => this._normalizeRuleAction(rule.action) === "exclude" && rule.value && this._ruleMatches(event, rule),
+			(rule) =>
+				this._normalizeRuleAction(rule.action) === "exclude" &&
+				Boolean(rule.value) &&
+				this._ruleMatches(event, rule),
 		);
 		if (excluded) return false;
+
 		return rules.some(
-			(rule) => this._normalizeRuleAction(rule.action) === "include" && rule.value && this._ruleMatches(event, rule),
+			(rule) =>
+				this._normalizeRuleAction(rule.action) === "include" &&
+				Boolean(rule.value) &&
+				this._ruleMatches(event, rule),
 		);
 	}
 
