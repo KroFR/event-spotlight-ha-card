@@ -1,4 +1,4 @@
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
+[![HACS Default](https://img.shields.io/badge/HACS-Custom-green.svg)](https://hacs.xyz/)
 [![GitHub Release](https://img.shields.io/github/v/release/KroFR/event-spotlight-ha-card)](https://github.com/KroFR/event-spotlight-ha-card/releases)
 [![Home Assistant](https://img.shields.io/badge/Home_Assistant-2024.6+-blue)](https://www.home-assistant.io/)
 [![HACS Validation](https://github.com/KroFR/event-spotlight-ha-card/actions/workflows/hacs.yaml/badge.svg)](https://github.com/KroFR/event-spotlight-ha-card/actions/workflows/hacs.yaml)
@@ -24,7 +24,7 @@ Instead of displaying every event from your calendars, Event Spotlight Card uses
 - Eight card arrangements for Chips and Mushroom: `Left`, `Center`, `Right`, `Justified`, `Stretched`, `List`, `2 columns`, and `3 columns`
 - Optional relative date, time, description, location, and calendar source
 - Automatic refresh, live Light/Dark theme updates, English/French localization, and a visual editor
-- No YAML knowledge required
+- Visual editor: fully configurable through the Lovelace UI editor, no YAML required
 
 > [!IMPORTANT]
 > Event Spotlight Card is rule-driven. An event must match an **Include** rule to be displayed.
@@ -40,13 +40,16 @@ The card retrieves upcoming calendar data using Home Assistant's `calendar.get_e
 
 ### HACS (recommended)
 
-1. Open HACS in Home Assistant.
-2. Open the three-dot menu and select **Custom repositories**.
-3. Add: `https://github.com/KroFR/event-spotlight-ha-card`
-4. Select **Dashboard** as the category.
-5. Click **Add**.
-6. Search for **Event Spotlight Card** and install it.
-7. Refresh Home Assistant if required.
+Use this link to directly go to the repository in HACS:
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=KroFR&repository=event-spotlight-ha-card)
+
+or
+
+1. Install HACS if you don't have it already
+2. Open HACS in Home Assistant
+3. Search for **Event Spotlight Card**
+4. Click the download button
 
 ### Manual
 
