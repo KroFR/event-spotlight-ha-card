@@ -12,7 +12,7 @@ Instead of displaying every event from your calendars, Event Spotlight Card uses
 
 | Light Theme | Dark Theme |
 |---|---|
-| <img width="501" height="277" alt="image" src="https://github.com/user-attachments/assets/5220abff-1fbf-4a76-b8a5-7eba3e0073a3" /> | <img width="502" height="278" alt="image" src="https://github.com/user-attachments/assets/8a2547cf-3487-4b0d-9d3e-166d595494b6" /> |
+| ![Light Theme](./img/readme-title-light.gif) | ![Dark Theme](./img/readme-title-dark.gif) |
 
 ## ✨ Features
 
