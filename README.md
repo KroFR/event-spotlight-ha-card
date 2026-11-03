@@ -12,31 +12,22 @@ Instead of displaying every event from your calendars, Event Spotlight Card uses
 
 | Light Theme | Dark Theme |
 |---|---|
-| <img width="501" height="277" alt="image" src="https://github.com/user-attachments/assets/5220abff-1fbf-4a76-b8a5-7eba3e0073a3" /> | <img width="502" height="278" alt="image" src="https://github.com/user-attachments/assets/8a2547cf-3487-4b0d-9d3e-166d595494b6" /> |
+| ![Light Theme](./img/readme-title-light.gif) | ![Dark Theme](./img/readme-title-dark.gif) |
 
 ## ✨ Features
 
-- Monitor one or more `calendar.*` entities
-- Display only events matching an Include rule
-- Exclude unwanted events with Exclude rules
-- Match title, description, location, or calendar source
-- Match using `contains`, `equals`, `starts_with`, `ends_with`, or regular expressions
-- Customize matching events with labels, `mdi:`, `hacs:`, or `advanced-camera-card:` icons, Home Assistant colors, or custom CSS colors
-- Combine overlapping Include rules in order, with later rules overriding only the properties they define
-- Show only the first upcoming event matching a rule when repeated events should be hidden
+- Select events with ordered Include rules and priority Exclude rules
+- Match title, description, location, or calendar source with text operators or regular expressions
+- Customize matching events with labels, icons, colors, backgrounds, Blink, and Pulse effects
+- Show only the next event for recurring matches
 - Six layouts: `Bubble`, `Chips`, `Mushroom`, `Pro`, `Square`, and `Ticker`
 - Eight card arrangements for Chips and Mushroom: `Left`, `Center`, `Right`, `Justified`, `Stretched`, `List`, `2 columns`, and `3 columns`
-- Optional relative date, event time, description, location, and calendar source
-- Reorder event details directly from the visual editor
-- Configure when today's all-day events disappear
-- Configure search range and automatic refresh interval
-- Show or hide the card header, header icon, and outer card background
-- Light and dark theme support
-- English and French, with automatic Home Assistant language detection
-- Full Lovelace visual editor
+- Optional relative date, time, description, location, and calendar source
+- Automatic refresh, live Light/Dark theme updates, English/French localization, and a visual editor
+- No YAML knowledge required
 
 > [!IMPORTANT]
-> Event Spotlight Card is rule-driven. An event must match at least one **Include** rule to be displayed. An **Exclude** rule always takes priority.
+> Event Spotlight Card is rule-driven. An event must match an **Include** rule to be displayed.
 
 ## ℹ️ Prerequisites
 
@@ -187,89 +178,72 @@ Ticker-specific options:
 
 ## 🎯 Event rules
 
-Rules are the core of Event Spotlight Card.
+Rules decide which events are displayed and how they look.
 
-### Include rules
+### Evaluation order
 
-An event must match at least one Include rule to appear. When several Include rules match, the card applies them from top to bottom. A later rule overrides only the appearance properties it defines, so broad calendar rules can provide defaults while more specific rules customize selected events.
+1. Every Exclude rule is evaluated first. A match hides the event.
+2. Include rules are evaluated from top to bottom.
+3. The first matching Include rule wins. Later Include rules are not evaluated.
+4. If no Include rule matches, the event is hidden.
 
-```yaml
-rules:
-  - action: include
-    field: summary
-    operator: contains
-    value: Birthday
-    label: Birthday
-    icon: mdi:cake-variant
-    color: pink
-```
-
-### Exclude rules
-
-Exclude rules remove matching events, even if an Include rule also matches.
+Reorder Include rules in the visual editor to set their priority. Place specific rules above broad rules.
 
 ```yaml
 rules:
-  - action: exclude
+- action: exclude                        # Any event with the word `doctor` in its title will be hidden.
     field: summary
     operator: contains
-    value: Cancelled
+    value: doctor
+
+- action: include                        # Any event with the word `dentist` in its title will be displayed using the rule settings.
+    field: summary
+    operator: equals
+    value: Dentist
+    icon: mdi:tooth
+    color: indigo
+
+- action: include                        # Only events containing `specialist` reach this rule, as previous rules take priority.
+    field: summary
+    operator: regex
+    value: '\b(doctor|dentist|specialist)\b'
+    icon: mdi:doctor
+    color: red
 ```
 
 ### Rule options
 
 | Name | Values | Description |
 |---|---|---|
-| `rule_name` | string | Optional name shown only in the visual editor |
-| `action` | `include`, `exclude` | Include/customize or exclude a matching event |
-| `field` | `summary`, `description`, `location`, `calendar` | Event field to inspect |
-| `operator` | `contains`, `equals`, `starts_with`, `ends_with`, `regex` | Matching method |
-| `value` | string | Value or pattern to match |
-| `label` | string | Optional title replacing the calendar event summary |
-| `icon` | string | Optional `mdi:`, `hacs:`, or `advanced-camera-card:` icon, for example `mdi:recycle` |
-| `color` | string | Optional Home Assistant or custom CSS color |
-| `show_icon_background_color` | boolean | Apply the selected color to the icon background |
-| `show_background_color` | boolean | Apply a subtle selected color to the event background |
-| `show_first_match_only` | boolean | Show only the first upcoming match. This is useful for recurring events such as waste collections. |
+| `rule_name` | Text | Optional name used only to identify the rule in the visual editor |
+| `action` | `include`, `exclude` | Defines whether a matching event is displayed or excluded |
+| `field` | `summary`, `description`, `location`, `calendar` | Event field used for matching |
+| `operator` | `contains`, `equals`, `starts_with`, `ends_with`, `regex` | Matching method applied to the selected field |
+| `value` | Text or regex | Value or pattern to match |
+| `label` | Text | Optional label that replaces the event summary when displayed |
+| `icon` | `mdi:*`, `hacs:*`, `advanced-camera-card:*` | Optional icon applied to matching events |
+| `color` | HA theme color or CSS color | Color used to highlight matching events |
+| `show_icon_background_color` | `true`, `false` | Apply the selected color to the icon background |
+| `show_background_color` | `true`, `false` | Apply the selected color to the event background |
+| `show_first_match_only` | `true`, `false` | Display only the next upcoming event matching this rule |
+| `blink_background` | `true`, `false` | Blink the event background when the configured highlight period starts |
+| `blink_start_minutes` | `30` to `360`, 30-minute steps | Number of minutes before a timed event when Blink starts |
+| `pulse_background` | `true`, `false` | Pulse the event when the configured highlight period starts |
+| `pulse_start_minutes` | `30` to `360`, 30-minute steps | Number of minutes before a timed event when Pulse starts |
 
-### Rule priority and cascading
-
-Exclude rules always take priority and are kept at the top of the visual editor. Include rules are evaluated in their configured order and can be reordered in the editor.
-
-```yaml
-rules:
-  - action: include
-    rule_name: Personal calendar
-    field: calendar
-    operator: contains
-    value: Personal
-    icon: mdi:calendar
-    color: blue
-
-  - action: include
-    rule_name: Medical appointments
-    field: summary
-    operator: regex
-    value: '\b(doctor|dentist)\b'
-    icon: mdi:doctor
-    color: red
-```
-
-A matching medical event first receives the Personal calendar defaults, then the Medical appointments icon and color override them.
+Blink and Pulse can be used independently or together. For all-day events, enabled effects start on the event day and remain active until the event is hidden at the time defined by `all_day_hide_time`.
 
 ### Matching operators
 
 | Operator| Description |
 | ------- | ----------- |
-| `contains` | Matches when the selected field contains the specified value anywhere in its text. |
-| `equals` | Matches only when the entire selected field exactly matches the specified value. |
-| `starts_with` | Matches when the selected field starts with the specified value. |
-| `ends_with` | Matches when the selected field ends with the specified value. |
-| `regex` | Matches the selected field against a JavaScript regular expression for more advanced patterns. |
+| `contains` | The field contains the specified value anywhere in its text |
+| `equals` | The entire field exactly matches the specified value |
+| `starts_with` | The field starts with the specified value |
+| `ends_with` | The field ends with the specified value |
+| `regex` | The field matches a case-insensitive, Unicode-aware JavaScript regular expression. Invalid expressions simply do not match |
 
-Regex matching uses JavaScript regular expressions with Unicode and case-insensitive matching. Invalid expressions simply do not match.
-
-Examples:
+Regex examples:
 
 | Pattern | Example matches |
 |---|---|
@@ -279,18 +253,11 @@ Examples:
 | `\b(doctor\|dentist)\b` | Matches doctor or dentist as complete words |
 | `recycl(e\|ing\|ables)` | Different recycling terms |
 
-Example:
+## ⏱️ Event visibility
 
-```yaml
-rules:
-  - action: include
-    field: summary
-    operator: regex
-    value: '\b(doctor|dentist)\b'
-    label: Medical appointment
-    icon: mdi:doctor
-    color: red
-```
+- Timed events disappear as soon as their start time is reached.
+- All-day events remain visible until `all_day_hide_time`, which defaults to `23:59`.
+- The card schedules these removals automatically. It does not wait for the next `update_interval` refresh.
 
 ## 🎨 Colors
 
@@ -392,6 +359,10 @@ rules:
     label: Medical appointment
     icon: mdi:doctor
     color: red
+    pulse_background: true
+    pulse_start_minutes: 120
+    blink_background: true
+    blink_start_minutes: 30
 ```
 
 ### Include a category but remove cancelled events
