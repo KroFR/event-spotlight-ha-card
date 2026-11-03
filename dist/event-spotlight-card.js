@@ -5,7 +5,7 @@
 * License: MIT
 */
 
-const CARD_VERSION = "1.1.3";
+const CARD_VERSION = "1.1.4";
 
 /* ---------------------------------------------------------------------- */
 /*  Main card                                                             */
@@ -107,6 +107,7 @@ class EventSpotlightCard extends HTMLElement {
 		this._updateTimer = null;
 		this._tickerTimer = null;
 		this._tickerIndex = 0;
+		this._blinkTimer = null;
 		this._activeTickerEvents = [];
 	}
 
@@ -131,6 +132,7 @@ class EventSpotlightCard extends HTMLElement {
 		this._allDayTimer = null;
 		this._updateTimer = null;
 		this._tickerTimer = null;
+		this._blinkTimer = null;
 	}
 
 	setConfig(config) {
@@ -376,6 +378,18 @@ class EventSpotlightCard extends HTMLElement {
 			if (rule.show_background_color !== undefined) {
 				next.show_background_color = rule.show_background_color;
 			}
+			if (rule.blink_background !== undefined) {
+				next.blink_background = rule.blink_background;
+			}
+			if (rule.pulse_background !== undefined) {
+				next.pulse_background = rule.pulse_background;
+			}
+			if (rule.blink_start_minutes !== undefined) {
+				next.blink_start_minutes = rule.blink_start_minutes;
+			}
+			if (rule.pulse_start_minutes !== undefined) {
+				next.pulse_start_minutes = rule.pulse_start_minutes;
+			}
 
 			return next;
 		}, {});
@@ -391,6 +405,20 @@ class EventSpotlightCard extends HTMLElement {
 				appearance.show_icon_background_color !== false,
 			show_background_color:
 				appearance.show_background_color !== false,
+			blink_background: appearance.blink_background === true,
+			pulse_background: appearance.pulse_background === true,
+			blink_start_minutes: this._clampedNumber(
+				appearance.blink_start_minutes,
+				30,
+				30,
+				360,
+			),
+			pulse_start_minutes: this._clampedNumber(
+				appearance.pulse_start_minutes,
+				30,
+				30,
+				360,
+			),
 			primary_rule_index: primaryMatch?.index ?? -1,
 			show_first_match_only: primaryMatch?.rule?.show_first_match_only === true,
 		};
@@ -453,6 +481,87 @@ class EventSpotlightCard extends HTMLElement {
 	_allDayHideTime() {
 		const value = String(this._config?.all_day_hide_time ?? EventSpotlightCard.FIELD_DEFAULTS.all_day_hide_time).trim();
 		return /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : EventSpotlightCard.FIELD_DEFAULTS.all_day_hide_time;
+	}
+
+	_isHighlightEffectActive(event, effect, now = new Date()) {
+		const enabled = effect === "blink"
+			? event.blink_background
+			: event.pulse_background;
+		if (!enabled) return false;
+
+		const allDay = /^\d{4}-\d{2}-\d{2}$/.test(event.start || "");
+		if (allDay) {
+			return now.getFullYear() === event.start_date.getFullYear() &&
+				now.getMonth() === event.start_date.getMonth() &&
+				now.getDate() === event.start_date.getDate() &&
+				this._isAllDayEventVisible(event, now);
+		}
+
+		const configuredMinutes = effect === "blink"
+			? event.blink_start_minutes
+			: event.pulse_start_minutes;
+		const leadMinutes = this._clampedNumber(
+			configuredMinutes,
+			30,
+			30,
+			360,
+		);
+		return now.getTime() >= event.start_date.getTime() - leadMinutes * 60000;
+	}
+
+	_highlightClasses(event, now = new Date()) {
+		return [
+			this._isHighlightEffectActive(event, "blink", now) ? "event-blink" : "",
+			this._isHighlightEffectActive(event, "pulse", now) ? "event-pulse" : "",
+		].filter(Boolean).join(" ");
+	}
+
+	_scheduleBlinkRefresh(events, now = new Date()) {
+		if (this._blinkTimer) clearTimeout(this._blinkTimer);
+		this._blinkTimer = null;
+
+		const nextStarts = [];
+		events.forEach((event) => {
+			const allDay = /^\d{4}-\d{2}-\d{2}$/.test(event.start || "");
+			if (allDay) {
+				if (
+					(event.blink_background || event.pulse_background) &&
+					!this._isHighlightEffectActive(event, "blink", now) &&
+					!this._isHighlightEffectActive(event, "pulse", now)
+				) {
+					const startOfDay = new Date(
+						event.start_date.getFullYear(),
+						event.start_date.getMonth(),
+						event.start_date.getDate(),
+					).getTime();
+					if (startOfDay > now.getTime()) nextStarts.push(startOfDay);
+				}
+				return;
+			}
+
+			[
+				["blink", event.blink_background, event.blink_start_minutes],
+				["pulse", event.pulse_background, event.pulse_start_minutes],
+			].forEach(([effect, enabled, configuredMinutes]) => {
+				if (!enabled || this._isHighlightEffectActive(event, effect, now)) return;
+				const leadMinutes = this._clampedNumber(
+					configuredMinutes,
+					30,
+					30,
+					360,
+				);
+				const startAt = event.start_date.getTime() - leadMinutes * 60000;
+				if (startAt > now.getTime()) nextStarts.push(startAt);
+			});
+		});
+
+		nextStarts.sort((a, b) => a - b);
+		if (!nextStarts.length) return;
+
+		this._blinkTimer = setTimeout(() => {
+			this._blinkTimer = null;
+			this._render();
+		}, Math.min(nextStarts[0] - now.getTime() + 250, 2147483647));
 	}
 
 	_isAllDayEventVisible(event, now = new Date()) {
@@ -651,12 +760,16 @@ class EventSpotlightCard extends HTMLElement {
 
 	_applyDynamicStyles(events, layout) {
 		if (!this.shadowRoot || !events.length) return;
+		const applyBlinkColor = (element, event) => {
+			if (element && event) element.style.setProperty("--event-blink-color", event.color);
+		};
 
 		if (layout === "ticker") {
 			const tickerEvents = this._tickerEvents(events);
 			this.shadowRoot.querySelectorAll(".ticker-event").forEach((row, index) => {
 				const event = tickerEvents[index];
 				if (!event) return;
+				applyBlinkColor(row, event);
 				row.style.setProperty(
 					"--ticker-dot-color",
 					event.show_icon_background_color ? event.color : "#0288d1",
@@ -675,6 +788,7 @@ class EventSpotlightCard extends HTMLElement {
 			rows.forEach((row, index) => {
 				const event = events[index];
 				if (!event) return;
+				applyBlinkColor(row, event);
 				row.style.setProperty(
 					"--bubble-dot-color",
 					event.show_icon_background_color ? event.color : "var(--primary-color)",
@@ -694,6 +808,7 @@ class EventSpotlightCard extends HTMLElement {
 		cards.forEach((card, index) => {
 			const event = events[index];
 			if (!event) return;
+			applyBlinkColor(card, event);
 			card.style.setProperty("--event-color", event.color);
 			card.style.setProperty(
 				"--event-background-mix",
@@ -730,6 +845,7 @@ class EventSpotlightCard extends HTMLElement {
 		const darkMode = Boolean(this._hass?.themes?.darkMode);
 		const visibleEvents = this._events.filter((event) => this._isAllDayEventVisible(event));
 		this._scheduleAllDayRefresh();
+		this._scheduleBlinkRefresh(visibleEvents);
 
 		let contentBlock = "";
 
@@ -795,7 +911,7 @@ class EventSpotlightCard extends HTMLElement {
 					const dateMeta = dateTime.length
 						? `<span class="ticker-meta">${this._escape(dateTime.join(" · "))}</span>`
 						: "";
-					return `<div class="ticker-event"><span class="ticker-dot"></span><span class="ticker-title">${this._escape(event.label)}</span>${detailItems ? `<span class="ticker-details">${detailItems}</span>` : ""}${dateMeta}</div>`;
+					return `<div class="ticker-event${this._highlightClasses(event) ? ` ${this._highlightClasses(event)}` : ""}"><span class="ticker-dot"></span><span class="ticker-title">${this._escape(event.label)}</span>${detailItems ? `<span class="ticker-details">${detailItems}</span>` : ""}${dateMeta}</div>`;
 				}).join("");
 				const tickerClasses = [
 					"ticker-card",
@@ -846,7 +962,7 @@ class EventSpotlightCard extends HTMLElement {
 							.filter((key) => key !== "date_time")
 							.map((key) => extraBlocks[key] || "")
 							.join("");
-						return `<div class="bubble-event-line">
+						return `<div class="bubble-event-line${this._highlightClasses(event) ? ` ${this._highlightClasses(event)}` : ""}">
 							<div class="bubble-main"><span class="bubble-dot"></span>${bubbleTime ? `<span class="bubble-time">${this._escape(bubbleTime)}</span>` : ""}<span class="event-title bubble-title">${this._escape(event.label)}${relativeDate ? ` <span class="bubble-relative">(${this._escape(relativeDate)})</span>` : ""}</span></div>
 							${extras ? `<div class="bubble-extra">${extras}</div>` : ""}
 						</div>`;
@@ -897,6 +1013,7 @@ class EventSpotlightCard extends HTMLElement {
 						const orderedDetails = this._displayOrder().map((key) => details[key] || "").join("");
 						const eventClasses = [
 							"pro-event",
+							...this._highlightClasses(event).split(" ").filter(Boolean),
 							event.show_icon_background_color ? "" : "no-icon-background-color",
 							event.show_background_color ? "" : "no-card-background-color",
 						].filter(Boolean).join(" ");
@@ -930,6 +1047,7 @@ class EventSpotlightCard extends HTMLElement {
 
 					const eventClasses = [
 						"event",
+						...this._highlightClasses(event).split(" ").filter(Boolean),
 						event.show_icon_background_color ? "" : "no-icon-background-color",
 						event.show_background_color ? "" : "no-card-background-color",
 					].filter(Boolean).join(" ");
@@ -1656,6 +1774,62 @@ class EventSpotlightCard extends HTMLElement {
 			}
 
 			/* ------------------------------------------------------------------ */
+			/* Rule highlight animation                                           */
+			/* ------------------------------------------------------------------ */
+			.event-blink {
+				animation: event-spotlight-background-blink 1.2s ease-in-out infinite;
+			}
+			@keyframes event-spotlight-background-blink {
+				0%, 100% {
+					background-color: transparent;
+				}
+				50% {
+					background-color: color-mix(
+						in srgb,
+						var(--event-blink-color, var(--primary-color)) 38%,
+						transparent
+					);
+				}
+			}
+			.event-pulse {
+				animation: event-spotlight-background-pulse 1.8s ease-in-out infinite;
+			}
+			.event-blink.event-pulse {
+				animation:
+					event-spotlight-background-blink 1.2s ease-in-out infinite,
+					event-spotlight-background-pulse 1.8s ease-in-out infinite;
+			}
+			@keyframes event-spotlight-background-pulse {
+				0%, 100% {
+					box-shadow: 0 0 0 0 color-mix(
+						in srgb,
+						var(--event-blink-color, var(--primary-color)) 0%,
+						transparent
+					);
+					transform: scale(1);
+				}
+				50% {
+					box-shadow: 0 0 0 5px color-mix(
+						in srgb,
+						var(--event-blink-color, var(--primary-color)) 24%,
+						transparent
+					);
+					transform: scale(1.015);
+				}
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.event-blink,
+				.event-pulse {
+					animation: none;
+					background-color: color-mix(
+						in srgb,
+						var(--event-blink-color, var(--primary-color)) 24%,
+						transparent
+					);
+				}
+			}
+
+			/* ------------------------------------------------------------------ */
 			/* Empty, loading, error, and responsive states                        */
 			/* ------------------------------------------------------------------ */
 			.state {
@@ -1816,6 +1990,20 @@ class EventSpotlightCardEditor extends HTMLElement {
 			: "contains";
 	}
 
+	_highlightStartOptions(value) {
+		const selected = Math.min(360, Math.max(30, Number(value) || 30));
+		return Array.from({ length: 12 }, (_, index) => (index + 1) * 30)
+			.map((minutes) => {
+				const hours = Math.floor(minutes / 60);
+				const remainingMinutes = minutes % 60;
+				const label = hours
+					? `${hours}h ${String(remainingMinutes).padStart(2, "0")}m`
+					: `${minutes} min`;
+				return `<option value="${minutes}"${selected === minutes ? " selected" : ""}>${label}</option>`;
+			})
+			.join("");
+	}
+
 	_ruleRow(rule, index) {
 		const action = this._normalizeRuleAction(rule.action);
 		const field = this._normalizeRuleField(rule.field);
@@ -1838,78 +2026,38 @@ class EventSpotlightCardEditor extends HTMLElement {
 			<details class="rule-card" data-rule-index="${index}" draggable="false">
 				<summary class="rule-card-summary">
 					<ha-icon class="rule-drag-handle${action === "exclude" ? " exclude-lock" : ""}" icon="${action === "exclude" ? "mdi:lock-outline" : "mdi:drag"}" draggable="true"></ha-icon>
-					<span class="rule-card-identity">
-						${icon ? `<ha-icon class="rule-card-icon" icon="${icon}" style="color:${iconColor}"></ha-icon>` : ""}
-						<span class="rule-card-title">${title}</span>
-					</span>
-					<span class="rule-card-actions">
-						<span class="rule-type rule-type-${action}">${actionLabel}</span>
-						<button class="rule-remove" data-rule-remove="${index}" type="button" title="Remove rule"><ha-icon icon="mdi:delete-outline"></ha-icon></button>
-						<span class="rule-toggle-icons" aria-hidden="true">
-							<ha-icon class="rule-toggle-down" icon="mdi:chevron-down"></ha-icon>
-							<ha-icon class="rule-toggle-up" icon="mdi:chevron-up"></ha-icon>
-						</span>
-					</span>
+					<span class="rule-card-identity">${icon ? `<ha-icon class="rule-card-icon" icon="${icon}" style="color:${iconColor}"></ha-icon>` : ""}<span class="rule-card-title">${title}</span></span>
+					<span class="rule-card-actions"><span class="rule-type rule-type-${action}">${actionLabel}</span><button class="rule-remove" data-rule-remove="${index}" type="button" title="Remove rule"><ha-icon icon="mdi:delete-outline"></ha-icon></button><span class="rule-toggle-icons" aria-hidden="true"><ha-icon class="rule-toggle-down" icon="mdi:chevron-down"></ha-icon><ha-icon class="rule-toggle-up" icon="mdi:chevron-up"></ha-icon></span></span>
 				</summary>
 				<div class="rule-card-content">
-				<label>
-					Rule name
-					<input data-rule-key="rule_name" type="text" value="${ruleName}" placeholder="Optional rule title">
-				</label>
-				<div class="rule-grid">
-					<div class="field">
-						<span>Action</span>
-						<select data-rule-key="action">
-							<option value="include"${action === "include" ? " selected" : ""}>Include</option>
-							<option value="exclude"${action === "exclude" ? " selected" : ""}>Exclude</option>
-						</select>
-					</div>
-					<div class="field">
-						<span>Field</span>
-						<select data-rule-key="field">
-							<option value="summary"${field === "summary" ? " selected" : ""}>Title</option>
-							<option value="description"${field === "description" ? " selected" : ""}>Description</option>
-							<option value="location"${field === "location" ? " selected" : ""}>Location</option>
-							<option value="calendar"${field === "calendar" ? " selected" : ""}>Calendar</option>
-						</select>
-					</div>
-					<div class="field">
-						<span>Match</span>
-						<select data-rule-key="operator">
-							<option value="contains"${operator === "contains" ? " selected" : ""}>Contains</option>
-							<option value="equals"${operator === "equals" ? " selected" : ""}>Equals</option>
-							<option value="starts_with"${operator === "starts_with" ? " selected" : ""}>Starts with</option>
-							<option value="ends_with"${operator === "ends_with" ? " selected" : ""}>Ends with</option>
-							<option value="regex"${operator === "regex" ? " selected" : ""}>Regular expression</option>
-						</select>
-					</div>
-				</div>
-				<label>
-					Value
-					<input data-rule-key="value" type="text" value="${value}" placeholder="Text to match">
-				</label>
-				${action === "exclude" ? "" : `
-				<label>
-					Label
-					<input data-rule-key="label" type="text" value="${label}" placeholder="Optional display label">
-				</label>`}
-				<div class="rule-appearance${action === "exclude" ? " hidden" : ""}">
-					<ha-form class="rule-appearance-form" data-rule-form="${index}"></ha-form>
-					<div class="rule-display-options">
-						<label class="compact-option">
-							<ha-switch data-rule-option="show_first_match_only" ${rule.show_first_match_only === true ? "checked" : ""}></ha-switch>
-							<span>Show first matching event only</span>
-						</label>
-					</div>
-					<div class="rule-color-options">
-						<label class="compact-option">
-							<ha-switch data-rule-option="show_icon_background_color" ${rule.show_icon_background_color !== false ? "checked" : ""}></ha-switch>
-							<span>Icon background color</span>
-						</label>
-						<label class="compact-option">
-							<ha-switch data-rule-option="show_background_color" ${rule.show_background_color !== false ? "checked" : ""}></ha-switch>
-							<span>Card background color</span>
-						</label>
+					<section class="rule-editor-group">
+						<div class="rule-editor-group-title">Rule</div>
+						<label>Rule name<input data-rule-key="rule_name" type="text" value="${ruleName}" placeholder="Optional rule title"></label>
+						<div class="rule-grid">
+							<div class="field"><span>Action</span><select data-rule-key="action"><option value="include"${action === "include" ? " selected" : ""}>Include</option><option value="exclude"${action === "exclude" ? " selected" : ""}>Exclude</option></select></div>
+							<div class="field"><span>Field</span><select data-rule-key="field"><option value="summary"${field === "summary" ? " selected" : ""}>Title</option><option value="description"${field === "description" ? " selected" : ""}>Description</option><option value="location"${field === "location" ? " selected" : ""}>Location</option><option value="calendar"${field === "calendar" ? " selected" : ""}>Calendar</option></select></div>
+							<div class="field"><span>Match</span><select data-rule-key="operator"><option value="contains"${operator === "contains" ? " selected" : ""}>Contains</option><option value="equals"${operator === "equals" ? " selected" : ""}>Equals</option><option value="starts_with"${operator === "starts_with" ? " selected" : ""}>Starts with</option><option value="ends_with"${operator === "ends_with" ? " selected" : ""}>Ends with</option><option value="regex"${operator === "regex" ? " selected" : ""}>Regular expression</option></select></div>
+						</div>
+						<label>Value<input data-rule-key="value" type="text" value="${value}" placeholder="Text to match"></label>
+					</section>
+					<div class="rule-appearance${action === "exclude" ? " hidden" : ""}">
+						<section class="rule-editor-group">
+							<div class="rule-editor-group-title">Appearance</div>
+							<label>Label<input data-rule-key="label" type="text" value="${label}" placeholder="Optional display label"></label>
+							<ha-form class="rule-appearance-form" data-rule-form="${index}"></ha-form>
+							<div class="rule-color-options"><label class="compact-option"><ha-switch data-rule-option="show_icon_background_color" ${rule.show_icon_background_color !== false ? "checked" : ""}></ha-switch><span>Icon background color</span></label><label class="compact-option"><ha-switch data-rule-option="show_background_color" ${rule.show_background_color !== false ? "checked" : ""}></ha-switch><span>Card background color</span></label></div>
+						</section>
+						<section class="rule-editor-group">
+							<div class="rule-editor-group-title">Behavior</div>
+							<label class="compact-option"><ha-switch data-rule-option="show_first_match_only" ${rule.show_first_match_only === true ? "checked" : ""}></ha-switch><span>Only show the next matching event</span></label>
+						</section>
+						<section class="rule-editor-group">
+							<div class="rule-editor-group-title">Highlight</div>
+							<div class="rule-highlight-grid">
+								<div class="rule-highlight-card"><label class="compact-option rule-highlight-toggle"><ha-switch data-rule-option="blink_background" ${rule.blink_background === true ? "checked" : ""}></ha-switch><span>Blink</span></label><div class="rule-highlight-options${rule.blink_background === true ? "" : " hidden"}" data-rule-highlight-options="blink"><label>Start before timed event<select data-rule-highlight-start="blink">${this._highlightStartOptions(rule.blink_start_minutes)}</select></label><small>All-day events start blinking on the event day.</small></div></div>
+								<div class="rule-highlight-card"><label class="compact-option rule-highlight-toggle"><ha-switch data-rule-option="pulse_background" ${rule.pulse_background === true ? "checked" : ""}></ha-switch><span>Pulse</span></label><div class="rule-highlight-options${rule.pulse_background === true ? "" : " hidden"}" data-rule-highlight-options="pulse"><label>Start before timed event<select data-rule-highlight-start="pulse">${this._highlightStartOptions(rule.pulse_start_minutes)}</select></label><small>All-day events start pulsing on the event day.</small></div></div>
+							</div>
+						</section>
 					</div>
 				</div>
 			</details>`;
@@ -2214,18 +2362,23 @@ class EventSpotlightCardEditor extends HTMLElement {
 				.rule-card[open] .rule-toggle-down { display:none; }
 				.rule-card[open] .rule-toggle-up { display:block; }
 				.rule-card-content { display:grid; gap:12px; padding:12px; }
-				.rule-grid {
-					display: grid;
-					grid-template-columns: repeat(3, minmax(0, 1fr));
-					gap: 10px;
-				}
+				.rule-appearance { display:grid; gap:12px; }
+				.rule-editor-group { display:grid; gap:10px; padding:12px; border:1px solid var(--divider-color); border-radius:10px; background:var(--ha-card-background,var(--card-background-color)); }
+				.rule-editor-group-title { color:var(--primary-text-color); font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+				.rule-highlight-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+				.rule-highlight-card { display:grid; align-content:start; gap:8px; padding:10px; border:1px solid var(--divider-color); border-radius:9px; background:var(--secondary-background-color); }
+				.rule-highlight-toggle { font-weight:600; }
+				.rule-highlight-options { display:grid; gap:6px; }
 
 				.rule-appearance-form {
 					display: block;
 					width: 100%;
 				}
 
-				.rule-display-options,
+				.rule-blink-options small {
+					color: var(--secondary-text-color);
+				}
+
 				.rule-color-options {
 					display: grid;
 					grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2321,6 +2474,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 					.grid,
 					.rule-grid,
 					.rule-color-options,
+					.rule-highlight-grid,
 					.calendar-setting {
 						grid-template-columns: 1fr;
 					}
@@ -2591,9 +2745,18 @@ class EventSpotlightCardEditor extends HTMLElement {
 				const rules = [...(this._config.rules || [])];
 				const current = { ...(rules[index] || {}) };
 
-				if (key === "show_first_match_only") {
-					if (toggle.checked) current[key] = true;
-					else delete current[key];
+				if (["show_first_match_only", "blink_background", "pulse_background"].includes(key)) {
+					if (toggle.checked) {
+						current[key] = true;
+						if (key === "blink_background" && current.blink_start_minutes === undefined) {
+							current.blink_start_minutes = 30;
+						}
+						if (key === "pulse_background" && current.pulse_start_minutes === undefined) {
+							current.pulse_start_minutes = 30;
+						}
+					} else {
+						delete current[key];
+					}
 				} else if (toggle.checked) {
 					delete current[key];
 				} else {
@@ -2601,10 +2764,32 @@ class EventSpotlightCardEditor extends HTMLElement {
 				}
 
 				rules[index] = current;
+				if (key === "blink_background" || key === "pulse_background") {
+					const effect = key === "blink_background" ? "blink" : "pulse";
+					const options = row.querySelector(`[data-rule-highlight-options="${effect}"]`);
+					options?.classList.toggle("hidden", !toggle.checked);
+					const select = row.querySelector(`[data-rule-highlight-start="${effect}"]`);
+					if (select && toggle.checked) select.value = "30";
+				}
 				this._setRules(rules, false);
 			});
 		});
 
+		this.querySelectorAll("[data-rule-highlight-start]").forEach((select) => {
+			select.addEventListener("change", () => {
+				const row = select.closest("[data-rule-index]");
+				const index = Number(row?.dataset.ruleIndex);
+				if (!Number.isInteger(index)) return;
+				const effect = select.dataset.ruleHighlightStart;
+				if (!["blink", "pulse"].includes(effect)) return;
+				const rules = [...(this._config.rules || [])];
+				const current = { ...(rules[index] || {}) };
+				const key = effect === "blink" ? "blink_start_minutes" : "pulse_start_minutes";
+				current[key] = Math.min(360, Math.max(30, Number(select.value) || 30));
+				rules[index] = current;
+				this._setRules(rules, false);
+			});
+		});
 		const addRuleButton = this.querySelector("#add-rule");
 
 		if (addRuleButton) {
@@ -2745,11 +2930,20 @@ class EventSpotlightCardEditor extends HTMLElement {
 
 			row.querySelectorAll("[data-rule-option]").forEach((toggle) => {
 				const optionKey = toggle.dataset.ruleOption;
-				toggle.checked = optionKey === "show_first_match_only"
+				toggle.checked = ["show_first_match_only", "blink_background", "pulse_background"].includes(optionKey)
 					? rule[optionKey] === true
 					: rule[optionKey] !== false;
 			});
 
+			[
+				["blink", rule.blink_background === true, rule.blink_start_minutes],
+				["pulse", rule.pulse_background === true, rule.pulse_start_minutes],
+			].forEach(([effect, enabled, startMinutes]) => {
+				const select = row.querySelector(`[data-rule-highlight-start="${effect}"]`);
+				if (select) select.value = String(startMinutes || 30);
+				row.querySelector(`[data-rule-highlight-options="${effect}"]`)
+					?.classList.toggle("hidden", !enabled);
+			});
 			this._updateRuleTitleIcon(
 				row,
 				isExclude ? "" : (rule.icon || "mdi:calendar"),
