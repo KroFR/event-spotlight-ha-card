@@ -23,7 +23,7 @@ Instead of displaying every event from your calendars, Event Spotlight Card uses
 - Six layouts: `Bubble`, `Chips`, `Mushroom`, `Pro`, `Square`, and `Ticker`
 - Eight card arrangements for Chips and Mushroom: `Left`, `Center`, `Right`, `Justified`, `Stretched`, `List`, `2 columns`, and `3 columns`
 - Optional relative date, time, description, location, and calendar source
-- Live Light/Dark theme support
+- Light and dark mode support, matching Home Assistant's native color scheme
 - English and French localization for both the card and visual editor, with automatic Home Assistant language detection
 - Visual editor: fully configurable through the Lovelace UI editor, no YAML required
 
