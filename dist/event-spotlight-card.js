@@ -5,35 +5,239 @@
 * License: MIT
 */
 
-const CARD_VERSION = "1.1.4";
+const CARD_VERSION = "1.1.5";
 
 /* ---------------------------------------------------------------------- */
-/*  Main card                                                             */
+/*  Languages                                                             */
 /* ---------------------------------------------------------------------- */
-class EventSpotlightCard extends HTMLElement {
-	static TRANSLATIONS = {
-		en: {
+const TRANSLATIONS = {
+	en: {
+		meta: {
+			name: "English",
+		},
+		card: {
 			title: "Upcoming Events",
 			loading: "Loading events…",
-			empty: "No matching events",
+			empty: "No events to display",
 			today: "Today",
 			tomorrow: "Tomorrow",
 			in_days: "In {n} days",
 			all_day: "All day",
-			error: "Unable to load spotlight events",
+			error: "Unable to load events",
 		},
-		fr: {
+		editor: {
+			sections: {
+				calendars: "Calendars",
+				general: "General",
+				appearance: "Appearance",
+				rules: "Display rules",
+			},
+			calendars: {
+				add: "Add a calendar",
+				empty: "No calendar selected",
+				remove: "Remove this calendar",
+			},
+			general: {
+				card_title: "Card title",
+				card_title_placeholder: "Upcoming Events",
+				search_range: "Search range (days)",
+				update_interval: "Refresh every (minutes)",
+				all_day_hide_time: "Hide all-day events after",
+				language: "Language",
+			},
+			appearance: {
+				layout: "Display style",
+				arrangement: "Event arrangement",
+				show_header: "Show title",
+				show_header_icon: "Show title icon",
+				show_card_background: "Show card background",
+				show_relative_date: "Show relative date",
+				show_time: "Show time",
+				show_description: "Show description",
+				show_location: "Show location",
+				show_calendar: "Show calendar name",
+				mushroom_shape: "Use Mushroom style",
+				invert_light_colors: "Invert colors in light theme",
+			},
+			rules: {
+				add: "Add a rule",
+				empty: "No rules defined",
+				remove: "Remove this rule",
+				fallback_name: "Rule {n}",
+				group_rule: "Conditions",
+				group_appearance: "Appearance",
+				group_behavior: "Display",
+				group_highlight: "Animation",
+				rule_name: "Rule name",
+				rule_name_placeholder: "Optional name",
+				action: "Action",
+				field: "Search in",
+				match: "Condition",
+				value: "Search text",
+				value_placeholder: "Enter the text to search for",
+				label: "Display name",
+				label_placeholder: "Replace the event name",
+				icon: "Icon",
+				color: "Color",
+				icon_background: "Show color behind the icon",
+				card_background: "Show color in the background",
+				next_match_only: "Only show the next matching event",
+				blink: "Blink",
+				pulse: "Pulse",
+				start_before: "Before the event starts",
+				minutes: "Minutes",
+				hours: "Hours",
+				all_day_blink: "For all-day events, blinking starts on the event day.",
+				all_day_pulse: "For all-day events, pulsing starts on the event day.",
+			},
+			options: {
+				auto: "Automatic",
+				include: "Show",
+				exclude: "Hide",
+				summary: "Title",
+				description: "Description",
+				location: "Location",
+				calendar: "Calendar",
+				contains: "Contains",
+				equals: "Matches exactly",
+				starts_with: "Starts with",
+				ends_with: "Ends with",
+				regex: "Regular expression",
+				left: "Left",
+				center: "Centered",
+				right: "Right",
+				justified: "Justified",
+				stretched: "Stretched",
+				list: "List",
+				two_columns: "2 columns",
+				three_columns: "3 columns",
+			},
+		},
+	},
+	fr: {
+		meta: {
+			name: "Français",
+		},
+		card: {
 			title: "Prochains événements",
 			loading: "Chargement des événements…",
-			empty: "Aucun événement correspondant",
+			empty: "Aucun événement à afficher",
 			today: "Aujourd’hui",
 			tomorrow: "Demain",
 			in_days: "Dans {n} jours",
 			all_day: "Toute la journée",
 			error: "Impossible de charger les événements",
 		},
-	};
+		editor: {
+			sections: {
+				calendars: "Calendriers",
+				general: "Général",
+				appearance: "Apparence",
+				rules: "Règles d’affichage",
+			},
+			calendars: {
+				add: "Ajouter un calendrier",
+				empty: "Aucun calendrier sélectionné",
+				remove: "Supprimer ce calendrier",
+			},
+			general: {
+				card_title: "Titre de la carte",
+				card_title_placeholder: "Prochains événements",
+				search_range: "Période de recherche (jours)",
+				update_interval: "Actualiser toutes les (minutes)",
+				all_day_hide_time: "Masquer les événements de la journée après",
+				language: "Langue",
+			},
+			appearance: {
+				layout: "Style d’affichage",
+				arrangement: "Organisation des événements",
+				show_header: "Afficher le titre",
+				show_header_icon: "Afficher l’icône du titre",
+				show_card_background: "Afficher le fond de la carte",
+				show_relative_date: "Afficher la date relative",
+				show_time: "Afficher l’heure",
+				show_description: "Afficher la description",
+				show_location: "Afficher le lieu",
+				show_calendar: "Afficher le nom du calendrier",
+				mushroom_shape: "Utiliser le style Mushroom",
+				invert_light_colors: "Inverser les couleurs en thème clair",
+			},
+			rules: {
+				add: "Ajouter une règle",
+				empty: "Aucune règle définie",
+				remove: "Supprimer cette règle",
+				fallback_name: "Règle {n}",
+				group_rule: "Conditions",
+				group_appearance: "Apparence",
+				group_behavior: "Affichage",
+				group_highlight: "Animation",
+				rule_name: "Nom de la règle",
+				rule_name_placeholder: "Nom facultatif",
+				action: "Action",
+				field: "Rechercher dans",
+				match: "Condition",
+				value: "Texte recherché",
+				value_placeholder: "Saisissez le texte à rechercher",
+				label: "Nom affiché",
+				label_placeholder: "Remplacer le nom de l’événement",
+				icon: "Icône",
+				color: "Couleur",
+				icon_background: "Afficher la couleur derrière l’icône",
+				card_background: "Afficher la couleur en arrière-plan",
+				next_match_only: "Afficher uniquement le prochain événement",
+				blink: "Faire clignoter",
+				pulse: "Faire pulser",
+				start_before: "Avant le début de l’événement",
+				minutes: "Minutes",
+				hours: "Heures",
+				all_day_blink: "Pour un événement de la journée, le clignotement commence le jour de l’événement.",
+				all_day_pulse: "Pour un événement de la journée, la pulsation commence le jour de l’événement.",
+			},
+			options: {
+				auto: "Automatique",
+				include: "Afficher",
+				exclude: "Masquer",
+				summary: "Titre",
+				description: "Description",
+				location: "Lieu",
+				calendar: "Calendrier",
+				contains: "Contient",
+				equals: "Correspond exactement à",
+				starts_with: "Commence par",
+				ends_with: "Se termine par",
+				regex: "Expression régulière",
+				left: "À gauche",
+				center: "Centré",
+				right: "À droite",
+				justified: "Justifié",
+				stretched: "Étendu",
+				list: "Liste",
+				two_columns: "2 colonnes",
+				three_columns: "3 colonnes",
+			},
+		},
+	},
+};
 
+function resolveLanguage(hass, configuredLanguage = "auto") {
+	if (configuredLanguage !== "auto" && TRANSLATIONS[configuredLanguage]) return configuredLanguage;
+	const language = (hass?.locale?.language || hass?.language || "en").toLowerCase().split("-")[0];
+	return TRANSLATIONS[language] ? language : "en";
+}
+
+function translate(language, path, replacements = {}) {
+	const readPath = (source) => path.split(".").reduce((value, key) => value?.[key], source);
+	let text = readPath(TRANSLATIONS[language]) ?? readPath(TRANSLATIONS.en) ?? path;
+	Object.entries(replacements).forEach(([key, value]) => {
+		text = String(text).replaceAll(`{${key}}`, String(value));
+	});
+	return String(text);
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Main card                                                             */
+/* ---------------------------------------------------------------------- */
+class EventSpotlightCard extends HTMLElement {
 	static FIELD_DEFAULTS = {
 		days: 30,
 		update_interval: 60,
@@ -103,6 +307,7 @@ class EventSpotlightCard extends HTMLElement {
 		this._loading = false;
 		this._error = "";
 		this._loadKey = "";
+		this._pendingLoad = false;
 		this._allDayTimer = null;
 		this._updateTimer = null;
 		this._tickerTimer = null;
@@ -136,18 +341,50 @@ class EventSpotlightCard extends HTMLElement {
 	}
 
 	setConfig(config) {
+		const previousLoadKey = this._config
+			? this._dataLoadKey(this._config)
+			: null;
+
 		const calendars = this._normalizeCalendars(
 			config.calendars || config.entities || [],
 		);
-		this._config = { ...config, calendars };
+
+		this._config = {
+			...config,
+			calendars,
+		};
+
+		const nextLoadKey = this._dataLoadKey(this._config);
+
 		this._scheduleUpdate();
+
+		if (!this._hass || !this.shadowRoot) {
+			return;
+		}
+
+		if (previousLoadKey !== nextLoadKey) {
+			this._requestEventsLoad();
+			return;
+		}
+
+		this._render();
 	}
 
 	set hass(hass) {
 		const initialHass = !this._hass;
 		const previousDarkMode = Boolean(this._hass?.themes?.darkMode);
 		const darkMode = Boolean(hass?.themes?.darkMode);
-		const themeChanged = !initialHass && previousDarkMode !== darkMode;
+		const themeChanged =
+			!initialHass && previousDarkMode !== darkMode;
+		const previousLanguage = this._hass
+			? resolveLanguage(this._hass, this._config?.language || "auto")
+			: null;
+		const currentLanguage = resolveLanguage(
+			hass,
+			this._config?.language || "auto",
+		);
+		const languageChanged =
+			!initialHass && previousLanguage !== currentLanguage;
 
 		this._hass = hass;
 
@@ -155,15 +392,18 @@ class EventSpotlightCard extends HTMLElement {
 			this.attachShadow({ mode: "open" });
 		}
 
-		const key = JSON.stringify([
-			this._calendarIds(),
-			this._config?.days,
-			this._rulesLoadKey(),
-		]);
+		if (!this._config) {
+			return;
+		}
 
-		if (key !== this._loadKey) {
-			this._loadEvents();
-		} else if (initialHass || themeChanged) {
+		const loadKey = this._dataLoadKey();
+
+		if (loadKey !== this._loadKey) {
+			this._requestEventsLoad();
+			return;
+		}
+
+		if (initialHass || themeChanged || languageChanged) {
 			this._render();
 		}
 	}
@@ -197,32 +437,34 @@ class EventSpotlightCard extends HTMLElement {
 			.filter((item) => item?.entity?.startsWith("calendar."));
 	}
 
-	_calendarIds() {
-		return (this._config?.calendars || []).map((item) => item.entity);
-	}
+	_dataLoadKey(config = this._config) {
+		const calendars = this._normalizeCalendars(
+			config?.calendars || config?.entities || [],
+		);
 
-	_rulesLoadKey() {
-		return (this._config?.rules || []).map(({ rule_name, ...rule }) => rule);
+		const rules = (config?.rules || []).map((rule) => ({
+			action: this._normalizeRuleAction(rule.action),
+			field: this._normalizeRuleField(rule.field),
+			operator: this._normalizeRuleOperator(rule.operator),
+			value: rule.value,
+		}));
+
+		return JSON.stringify([
+			calendars.map((calendar) => calendar.entity),
+			config?.days ?? EventSpotlightCard.FIELD_DEFAULTS.days,
+			rules,
+		]);
 	}
 
 	_lang() {
-		const configured = this._config?.language;
-		if (configured && configured !== "auto")
-			return EventSpotlightCard.TRANSLATIONS[configured] ? configured : "en";
-		const language = (
-			this._hass?.locale?.language ||
-			this._hass?.language ||
-			"en"
-		).split("-")[0];
-		return EventSpotlightCard.TRANSLATIONS[language] ? language : "en";
+		return resolveLanguage(
+			this._hass,
+			this._config?.language || "auto",
+		);
 	}
 
 	_t(lang, key, n) {
-		return (
-			EventSpotlightCard.TRANSLATIONS[lang]?.[key] ||
-			EventSpotlightCard.TRANSLATIONS.en[key] ||
-			key
-		).replace("{n}", n ?? "");
+		return translate(lang, `card.${key}`, { n: n ?? "" });
 	}
 
 	_escape(value = "") {
@@ -340,15 +582,35 @@ class EventSpotlightCard extends HTMLElement {
 		const state = this._hass.states[calendar.entity];
 		const calendarName =
 			calendar.name || state?.attributes?.friendly_name || calendar.entity;
+
 		const base = {
 			...event,
-			summary: this._limitText(event.summary, EventSpotlightCard.SECURITY_LIMITS.title),
-			description: this._limitText(event.description, EventSpotlightCard.SECURITY_LIMITS.description),
-			location: this._limitText(event.location, EventSpotlightCard.SECURITY_LIMITS.location),
-			calendar: this._limitText(calendar.entity, EventSpotlightCard.SECURITY_LIMITS.calendar),
-			calendar_name: this._limitText(calendarName, EventSpotlightCard.SECURITY_LIMITS.calendar),
+			summary: this._limitText(
+				event.summary,
+				EventSpotlightCard.SECURITY_LIMITS.title,
+			),
+			description: this._limitText(
+				event.description,
+				EventSpotlightCard.SECURITY_LIMITS.description,
+			),
+			location: this._limitText(
+				event.location,
+				EventSpotlightCard.SECURITY_LIMITS.location,
+			),
+			calendar: this._limitText(
+				calendar.entity,
+				EventSpotlightCard.SECURITY_LIMITS.calendar,
+			),
+			calendar_name: this._limitText(
+				calendarName,
+				EventSpotlightCard.SECURITY_LIMITS.calendar,
+			),
 			start_date: this._date(event.start),
+			default_icon: this._safeIcon(
+				calendar.icon || state?.attributes?.icon,
+			),
 		};
+
 		const rules = this._config.rules || [];
 		const matchIndex = rules.findIndex(
 			(rule) =>
@@ -356,34 +618,68 @@ class EventSpotlightCard extends HTMLElement {
 				Boolean(rule.value) &&
 				this._ruleMatches(base, rule),
 		);
-		const match = matchIndex >= 0 ? rules[matchIndex] : null;
 
 		return {
 			...base,
-			label: String(match?.label || "").trim() || base.summary || calendarName,
-			icon: this._safeIcon(
-				match?.icon || calendar.icon || state?.attributes?.icon,
-			),
-			color: this._resolveUiColor(match?.color),
-			show_icon_background_color: match?.show_icon_background_color !== false,
-			show_background_color: match?.show_background_color !== false,
-			blink_background: match?.blink_background === true,
-			pulse_background: match?.pulse_background === true,
+			primary_rule_index: matchIndex,
+		};
+	}
+
+	_applyRuleAppearance(event) {
+		const rule =
+			event.primary_rule_index >= 0
+				? this._config.rules?.[event.primary_rule_index]
+				: null;
+
+		return {
+			...event,
+			label:
+				String(rule?.label || "").trim() ||
+				event.summary ||
+				event.calendar_name,
+			icon: this._safeIcon(rule?.icon || event.default_icon),
+			color: this._resolveUiColor(rule?.color),
+			show_icon_background_color:
+				rule?.show_icon_background_color !== false,
+			show_background_color:
+				rule?.show_background_color !== false,
+			blink_background: rule?.blink_background === true,
+			pulse_background: rule?.pulse_background === true,
 			blink_start_minutes: this._clampedNumber(
-				match?.blink_start_minutes,
+				rule?.blink_start_minutes,
 				30,
-				30,
-				360,
+				1,
+				1440,
 			),
 			pulse_start_minutes: this._clampedNumber(
-				match?.pulse_start_minutes,
+				rule?.pulse_start_minutes,
 				30,
-				30,
-				360,
+				1,
+				1440,
 			),
-			primary_rule_index: matchIndex,
-			show_first_match_only: match?.show_first_match_only === true,
+			show_first_match_only:
+				rule?.show_first_match_only === true,
 		};
+	}
+
+	_filterFirstRuleMatches(events) {
+		const matchedRules = new Set();
+
+		return events.filter((event) => {
+			if (
+				!event.show_first_match_only ||
+				event.primary_rule_index < 0
+			) {
+				return true;
+			}
+
+			if (matchedRules.has(event.primary_rule_index)) {
+				return false;
+			}
+
+			matchedRules.add(event.primary_rule_index);
+			return true;
+		});
 	}
 
 	_safeIcon(icon, fallback = "mdi:calendar") {
@@ -435,7 +731,8 @@ class EventSpotlightCard extends HTMLElement {
 		if (!this.isConnected || !this._config) return;
 		this._updateTimer = setTimeout(() => {
 			this._updateTimer = null;
-			this._loadEvents();
+			this._loadKey = "";
+			this._requestEventsLoad();
 			this._scheduleUpdate();
 		}, this._updateIntervalMinutes() * 60 * 1000);
 	}
@@ -465,8 +762,8 @@ class EventSpotlightCard extends HTMLElement {
 		const leadMinutes = this._clampedNumber(
 			configuredMinutes,
 			30,
-			30,
-			360,
+			1,
+			1440,
 		);
 		return now.getTime() >= event.start_date.getTime() - leadMinutes * 60000;
 	}
@@ -509,8 +806,8 @@ class EventSpotlightCard extends HTMLElement {
 				const leadMinutes = this._clampedNumber(
 					configuredMinutes,
 					30,
-					30,
-					360,
+					1,
+					1440,
 				);
 				const startAt = event.start_date.getTime() - leadMinutes * 60000;
 				if (startAt > now.getTime()) nextStarts.push(startAt);
@@ -594,32 +891,69 @@ class EventSpotlightCard extends HTMLElement {
 		);
 	}
 
-	async _loadEvents() {
-		if (!this._hass || !this._config || this._loading) return;
-		const calendars = this._config.calendars || [];
-		if (!calendars.length) {
-			this._events = [];
+	_requestEventsLoad() {
+		if (!this._hass || !this._config) {
+			return;
+		}
+
+		const requestedLoadKey = this._dataLoadKey();
+
+		if (requestedLoadKey === this._loadKey) {
 			this._render();
 			return;
 		}
-		this._loading = true;
-		this._error = "";
-		this._render();
-		const days = this._clampedNumber(
+
+		if (this._loading) {
+			this._pendingLoad = true;
+			return;
+		}
+
+		this._loadEvents(requestedLoadKey);
+	}
+
+	async _loadEvents(requestedLoadKey = this._dataLoadKey()) {
+		if (!this._hass || !this._config) {
+			return;
+		}
+
+		if (this._loading) {
+			this._pendingLoad = true;
+			return;
+		}
+
+		const calendars = this._config.calendars || [];
+		const requestedCalendars = calendars.map((calendar) => ({
+			...calendar,
+		}));
+
+		const requestedDays = this._clampedNumber(
 			this._config.days,
 			EventSpotlightCard.FIELD_DEFAULTS.days,
 			EventSpotlightCard.SECURITY_LIMITS.days.min,
 			EventSpotlightCard.SECURITY_LIMITS.days.max,
 		);
+		if (!calendars.length) {
+			this._events = [];
+			this._loadKey = requestedLoadKey;
+			this._render();
+			return;
+		}
+		this._pendingLoad = false;
+		this._loading = true;
+		this._error = "";
+		this._render();
+
 		const start = new Date();
-		const end = new Date(start.getTime() + days * 86400000);
+		const end = new Date(
+			start.getTime() + requestedDays * 86400000,
+		);
 		try {
 			const result = await this._hass.connection.sendMessagePromise({
 				type: "execute_script",
 				sequence: [
 					{
 						action: "calendar.get_events",
-						target: { entity_id: calendars.map((calendar) => calendar.entity) },
+						target: { entity_id: requestedCalendars.map((calendar) => calendar.entity) },
 						data: {
 							start_date_time: start.toISOString(),
 							end_date_time: end.toISOString(),
@@ -633,7 +967,7 @@ class EventSpotlightCard extends HTMLElement {
 				],
 			});
 			const response = result?.response || result || {};
-			const responses = calendars.map((calendar) => {
+			const responses = requestedCalendars.map((calendar) => {
 				const events = response?.[calendar.entity]?.events || [];
 				return events.map((event) => this._decorate(event, calendar));
 			});
@@ -641,18 +975,12 @@ class EventSpotlightCard extends HTMLElement {
 				.flat()
 				.filter((event) => this._passes(event))
 				.sort((a, b) => a.start_date - b.start_date);
-			const firstMatchRules = new Set();
-			this._events = sortedEvents
-				.filter((event) => {
-					if (!event.show_first_match_only || event.primary_rule_index < 0) {
-						return true;
-					}
-					if (firstMatchRules.has(event.primary_rule_index)) return false;
-					firstMatchRules.add(event.primary_rule_index);
-					return true;
-				})
-				.slice(0, EventSpotlightCard.SECURITY_LIMITS.max_rendered_events);
-			this._loadKey = JSON.stringify([this._calendarIds(), this._config.days, this._rulesLoadKey()]);
+			this._events = sortedEvents.slice(
+				0,
+				EventSpotlightCard.SECURITY_LIMITS
+					.max_rendered_events,
+			);
+			this._loadKey = requestedLoadKey;
 		} catch (error) {
 			console.error(
 				"Event Spotlight Card: failed to load spotlight events",
@@ -663,6 +991,18 @@ class EventSpotlightCard extends HTMLElement {
 			this._loading = false;
 			this._render();
 			this._scheduleUpdate();
+
+			const currentLoadKey = this._dataLoadKey();
+
+			if (
+				this._pendingLoad ||
+				currentLoadKey !== this._loadKey
+			) {
+				this._pendingLoad = false;
+				queueMicrotask(() => {
+					this._requestEventsLoad();
+				});
+			}
 		}
 	}
 
@@ -720,7 +1060,6 @@ class EventSpotlightCard extends HTMLElement {
 		const configured = Array.isArray(this._config.display_order) ? this._config.display_order : [];
 		return [...configured.filter((key) => defaults.includes(key)), ...defaults.filter((key) => !configured.includes(key))];
 	}
-
 
 	_tickerEvents(events) {
 		return events;
@@ -844,8 +1183,17 @@ class EventSpotlightCard extends HTMLElement {
 			: EventSpotlightCard.FIELD_DEFAULTS.card_arrangement;
 		const darkMode = Boolean(this._hass?.themes?.darkMode);
 		const now = new Date();
-		const visibleEvents = this._events.filter((event) => this._isEventVisible(event, now));
-		this._scheduleVisibilityRefresh(this._events, now);
+		const visibleEvents =
+			this._filterFirstRuleMatches(
+				this._events
+					.map((event) =>
+						this._applyRuleAppearance(event),
+					)
+					.filter((event) =>
+						this._isEventVisible(event, now),
+					),
+			);
+		this._scheduleVisibilityRefresh(visibleEvents, now);
 		this._scheduleBlinkRefresh(visibleEvents, now);
 
 		let contentBlock = "";
@@ -1099,7 +1447,6 @@ class EventSpotlightCard extends HTMLElement {
 					${contentBlock}
 				</div>
 			</ha-card>`;
-
 
 		this._applyDynamicStyles(visibleEvents, layout);
 		if (layout === "ticker") this._startTicker();
@@ -1871,6 +2218,9 @@ class EventSpotlightCardEditor extends HTMLElement {
 		super();
 		this._rendered = false;
 		this._ruleInputTimer = null;
+		this._configDispatchTimer = null;
+		this._pendingConfigDispatch = null;
+		this._lastEmittedConfigKey = null;
 		this._pendingOpenRuleIndex = null;
 		this._sectionState = {
 			calendars: false,
@@ -1880,17 +2230,76 @@ class EventSpotlightCardEditor extends HTMLElement {
 		};
 	}
 
+	disconnectedCallback() {
+		if (this._configDispatchTimer) clearTimeout(this._configDispatchTimer);
+		this._configDispatchTimer = null;
+		this._pendingConfigDispatch = null;
+	}
+
+	_scheduleConfigChanged(config = this._config) {
+		this._pendingConfigDispatch = { ...config };
+
+		if (this._configDispatchTimer) return;
+
+		this._configDispatchTimer = setTimeout(() => {
+			this._configDispatchTimer = null;
+
+			const pendingConfig = this._pendingConfigDispatch;
+			this._pendingConfigDispatch = null;
+
+			if (!pendingConfig) return;
+
+			this._lastEmittedConfigKey = JSON.stringify(pendingConfig);
+
+			this.dispatchEvent(
+				new CustomEvent("config-changed", {
+					detail: { config: pendingConfig },
+					bubbles: true,
+					composed: true,
+				}),
+			);
+		}, 0);
+	}
+
 	setConfig(config) {
-		const previousConfig = this._config;
 		const nextConfig = { ...config };
+
 		if (Array.isArray(nextConfig.rules)) {
 			nextConfig.rules = this._orderRules(nextConfig.rules);
 		}
+
+		const incomingKey = JSON.stringify(nextConfig);
+
+		if (
+			this._rendered &&
+			incomingKey === this._lastEmittedConfigKey
+		) {
+			const languageChanged =
+				this._config?.language !== nextConfig.language;
+
+			this._config = nextConfig;
+			this._lastEmittedConfigKey = null;
+
+			if (languageChanged) {
+				this._render();
+			}
+
+			this._updateValues();
+			return;
+		}
+
+		this._lastEmittedConfigKey = null;
+
+		const previousConfig = this._config;
+
 		const structureChanged =
 			!previousConfig ||
-			(previousConfig.calendars || []).length !== (nextConfig.calendars || []).length ||
-			(previousConfig.rules || []).length !== (nextConfig.rules || []).length ||
-			previousConfig.layout !== nextConfig.layout;
+			(previousConfig.calendars || []).length !==
+				(nextConfig.calendars || []).length ||
+			(previousConfig.rules || []).length !==
+				(nextConfig.rules || []).length ||
+			previousConfig.layout !== nextConfig.layout ||
+			previousConfig.language !== nextConfig.language;
 
 		this._config = nextConfig;
 
@@ -1903,14 +2312,38 @@ class EventSpotlightCardEditor extends HTMLElement {
 
 		this._updateValues();
 	}
+
 	set hass(hass) {
+		const configuredLanguage = this._config?.language || "auto";
+
+		const previousLanguage = this._hass
+			? resolveLanguage(
+					this._hass,
+					configuredLanguage,
+				)
+			: null;
+
 		this._hass = hass;
+
+		const currentLanguage = resolveLanguage(hass, configuredLanguage);
+
+		if (
+			this._rendered &&
+			previousLanguage &&
+			previousLanguage !== currentLanguage
+		) {
+			this._render();
+			this._updateValues();
+			return;
+		}
+
 		if (!this._rendered && this._config) {
 			this._render();
 			this._rendered = true;
 			this._updateValues();
 			return;
 		}
+
 		this.querySelectorAll("ha-selector, ha-form").forEach((element) => {
 			element.hass = hass;
 		});
@@ -1922,6 +2355,21 @@ class EventSpotlightCardEditor extends HTMLElement {
 			this._rendered = true;
 			this._updateValues();
 		}
+	}
+
+	_lang() {
+		return resolveLanguage(
+			this._hass,
+			this._config?.language || "auto",
+		);
+	}
+
+	_t(path, replacements = {}) {
+		return translate(this._lang(), `editor.${path}`, replacements);
+	}
+
+	_ruleFallbackName(index) {
+		return this._t("rules.fallback_name", { n: index + 1 });
 	}
 
 	_sectionSummary(icon, title) {
@@ -1947,10 +2395,10 @@ class EventSpotlightCardEditor extends HTMLElement {
 		const isBubble = layout === "bubble";
 		const locksDateTime = isBubble || layout === "ticker";
 		const rows = {
-			date_time: `<div class="appearance-switches">${this._switchRow("show_relative_date", "Show relative date")}${this._switchRow("show_time", "Show event time")}</div>`,
-			description: this._switchRow("show_description", "Show description"),
-			location: this._switchRow("show_location", "Show location"),
-			calendar: this._switchRow("show_calendar_source", "Show calendar name"),
+			date_time: `<div class="appearance-switches">${this._switchRow("show_relative_date", this._t("appearance.show_relative_date"))}${this._switchRow("show_time", this._t("appearance.show_time"))}</div>`,
+			description: this._switchRow("show_description", this._t("appearance.show_description")),
+			location: this._switchRow("show_location", this._t("appearance.show_location")),
+			calendar: this._switchRow("show_calendar_source", this._t("appearance.show_calendar")),
 		};
 		const order = locksDateTime
 			? ["date_time", ...this._displayOrder().filter((key) => key !== "date_time")]
@@ -1973,7 +2421,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 							<ha-icon icon="${this._escapeAttribute(this._safeIcon(state?.attributes?.icon))}"></ha-icon>
 							<div><span>${this._escapeAttribute(name)}</span><small>${this._escapeAttribute(item.entity)}</small></div>
 						</div>
-						<button class="calendar-remove" data-calendar-remove type="button" title="Remove calendar"><ha-icon icon="mdi:delete-outline"></ha-icon></button>
+						<button class="calendar-remove" data-calendar-remove type="button" title="${this._t("calendars.remove")}"><ha-icon icon="mdi:delete-outline"></ha-icon></button>
 					</div>`;
 			})
 			.join("");
@@ -1991,18 +2439,27 @@ class EventSpotlightCardEditor extends HTMLElement {
 			: "contains";
 	}
 
-	_highlightStartOptions(value) {
-		const selected = Math.min(360, Math.max(30, Number(value) || 30));
-		return Array.from({ length: 12 }, (_, index) => (index + 1) * 30)
-			.map((minutes) => {
-				const hours = Math.floor(minutes / 60);
-				const remainingMinutes = minutes % 60;
-				const label = hours
-					? `${hours}h ${String(remainingMinutes).padStart(2, "0")}m`
-					: `${minutes} min`;
-				return `<option value="${minutes}"${selected === minutes ? " selected" : ""}>${label}</option>`;
-			})
-			.join("");
+	_highlightDurationValue(minutes) {
+		const totalMinutes = Math.min(1440, Math.max(1, Number(minutes) || 30));
+		return totalMinutes >= 60 && totalMinutes % 60 === 0
+			? totalMinutes / 60
+			: totalMinutes;
+	}
+
+	_highlightDurationUnit(minutes) {
+		const totalMinutes = Math.min(1440, Math.max(1, Number(minutes) || 30));
+		return totalMinutes >= 60 && totalMinutes % 60 === 0
+			? "hours"
+			: "minutes";
+	}
+
+	_highlightDurationMinutes(value, unit) {
+		const number = Number(value);
+		const safeValue = Number.isFinite(number) ? number : 30;
+		return Math.min(
+			1440,
+			Math.max(1, Math.round(safeValue * (unit === "hours" ? 60 : 1))),
+		);
 	}
 
 	_ruleRow(rule, index) {
@@ -2015,48 +2472,72 @@ class EventSpotlightCardEditor extends HTMLElement {
 		const ruleName = this._escapeAttribute(rawRuleName);
 		const label = this._escapeAttribute(rawLabel);
 		const value = this._escapeAttribute(rawValue);
-		const title = this._escapeAttribute(rawRuleName || rawValue || `Rule ${index + 1}`);
+		const title = this._escapeAttribute(rawRuleName || rawValue || this._ruleFallbackName(index));
 		const rawIcon = rule.icon || "mdi:calendar";
 		const icon = action === "exclude"
 			? ""
 			: this._escapeAttribute(this._safeIcon(rawIcon, "mdi:calendar"));
 		const iconColor = this._escapeAttribute(this._ruleIconColor(rule));
-		const actionLabel = action === "exclude" ? "Exclude" : "Include";
+		const actionLabel = this._t(`options.${action}`);
+		const blinkDurationValue = this._highlightDurationValue(rule.blink_start_minutes);
+		const blinkDurationUnit = this._highlightDurationUnit(rule.blink_start_minutes);
+		const pulseDurationValue = this._highlightDurationValue(rule.pulse_start_minutes);
+		const pulseDurationUnit = this._highlightDurationUnit(rule.pulse_start_minutes);
 
 		return `
 			<details class="rule-card" data-rule-index="${index}" draggable="false">
 				<summary class="rule-card-summary">
 					<ha-icon class="rule-drag-handle${action === "exclude" ? " exclude-lock" : ""}" icon="${action === "exclude" ? "mdi:lock-outline" : "mdi:drag"}" draggable="true"></ha-icon>
 					<span class="rule-card-identity">${icon ? `<ha-icon class="rule-card-icon" icon="${icon}" style="color:${iconColor}"></ha-icon>` : ""}<span class="rule-card-title">${title}</span></span>
-					<span class="rule-card-actions"><span class="rule-type rule-type-${action}">${actionLabel}</span><button class="rule-remove" data-rule-remove="${index}" type="button" title="Remove rule"><ha-icon icon="mdi:delete-outline"></ha-icon></button><span class="rule-toggle-icons" aria-hidden="true"><ha-icon class="rule-toggle-down" icon="mdi:chevron-down"></ha-icon><ha-icon class="rule-toggle-up" icon="mdi:chevron-up"></ha-icon></span></span>
+					<span class="rule-card-actions"><span class="rule-type rule-type-${action}">${actionLabel}</span><button class="rule-remove" data-rule-remove="${index}" type="button" title="${this._t("rules.remove")}"><ha-icon icon="mdi:delete-outline"></ha-icon></button><span class="rule-toggle-icons" aria-hidden="true"><ha-icon class="rule-toggle-down" icon="mdi:chevron-down"></ha-icon><ha-icon class="rule-toggle-up" icon="mdi:chevron-up"></ha-icon></span></span>
 				</summary>
 				<div class="rule-card-content">
 					<section class="rule-editor-group">
-						<div class="rule-editor-group-title">Rule</div>
-						<label>Rule name<input data-rule-key="rule_name" type="text" value="${ruleName}" placeholder="Optional rule title"></label>
+						<div class="rule-editor-group-title">${this._t("rules.group_rule")}</div>
+						<label>${this._t("rules.rule_name")}<input data-rule-key="rule_name" type="text" value="${ruleName}" placeholder="${this._t("rules.rule_name_placeholder")}"></label>
 						<div class="rule-grid">
-							<div class="field"><span>Action</span><select data-rule-key="action"><option value="include"${action === "include" ? " selected" : ""}>Include</option><option value="exclude"${action === "exclude" ? " selected" : ""}>Exclude</option></select></div>
-							<div class="field"><span>Field</span><select data-rule-key="field"><option value="summary"${field === "summary" ? " selected" : ""}>Title</option><option value="description"${field === "description" ? " selected" : ""}>Description</option><option value="location"${field === "location" ? " selected" : ""}>Location</option><option value="calendar"${field === "calendar" ? " selected" : ""}>Calendar</option></select></div>
-							<div class="field"><span>Match</span><select data-rule-key="operator"><option value="contains"${operator === "contains" ? " selected" : ""}>Contains</option><option value="equals"${operator === "equals" ? " selected" : ""}>Equals</option><option value="starts_with"${operator === "starts_with" ? " selected" : ""}>Starts with</option><option value="ends_with"${operator === "ends_with" ? " selected" : ""}>Ends with</option><option value="regex"${operator === "regex" ? " selected" : ""}>Regular expression</option></select></div>
+							<div class="field"><span>${this._t("rules.action")}</span><select data-rule-key="action"><option value="include"${action === "include" ? " selected" : ""}>${this._t("options.include")}</option><option value="exclude"${action === "exclude" ? " selected" : ""}>${this._t("options.exclude")}</option></select></div>
+							<div class="field"><span>${this._t("rules.field")}</span><select data-rule-key="field"><option value="summary"${field === "summary" ? " selected" : ""}>${this._t("options.summary")}</option><option value="description"${field === "description" ? " selected" : ""}>${this._t("options.description")}</option><option value="location"${field === "location" ? " selected" : ""}>${this._t("options.location")}</option><option value="calendar"${field === "calendar" ? " selected" : ""}>${this._t("options.calendar")}</option></select></div>
+							<div class="field"><span>${this._t("rules.match")}</span><select data-rule-key="operator"><option value="contains"${operator === "contains" ? " selected" : ""}>${this._t("options.contains")}</option><option value="equals"${operator === "equals" ? " selected" : ""}>${this._t("options.equals")}</option><option value="starts_with"${operator === "starts_with" ? " selected" : ""}>${this._t("options.starts_with")}</option><option value="ends_with"${operator === "ends_with" ? " selected" : ""}>${this._t("options.ends_with")}</option><option value="regex"${operator === "regex" ? " selected" : ""}>${this._t("options.regex")}</option></select></div>
 						</div>
-						<label>Value<input data-rule-key="value" type="text" value="${value}" placeholder="Text to match"></label>
+						<label>${this._t("rules.value")}<input data-rule-key="value" type="text" value="${value}" placeholder="${this._t("rules.value_placeholder")}"></label>
 					</section>
 					<div class="rule-appearance${action === "exclude" ? " hidden" : ""}">
 						<section class="rule-editor-group">
-							<div class="rule-editor-group-title">Appearance</div>
-							<label>Label<input data-rule-key="label" type="text" value="${label}" placeholder="Optional display label"></label>
+							<div class="rule-editor-group-title">${this._t("rules.group_appearance")}</div>
+							<label>${this._t("rules.label")}<input data-rule-key="label" type="text" value="${label}" placeholder="${this._t("rules.label_placeholder")}"></label>
 							<ha-form class="rule-appearance-form" data-rule-form="${index}"></ha-form>
-							<div class="rule-color-options"><label class="compact-option"><ha-switch data-rule-option="show_icon_background_color" ${rule.show_icon_background_color !== false ? "checked" : ""}></ha-switch><span>Icon background color</span></label><label class="compact-option"><ha-switch data-rule-option="show_background_color" ${rule.show_background_color !== false ? "checked" : ""}></ha-switch><span>Card background color</span></label></div>
+							<div class="rule-color-options"><label class="compact-option"><ha-switch data-rule-option="show_icon_background_color" ${rule.show_icon_background_color !== false ? "checked" : ""}></ha-switch><span>${this._t("rules.icon_background")}</span></label><label class="compact-option"><ha-switch data-rule-option="show_background_color" ${rule.show_background_color !== false ? "checked" : ""}></ha-switch><span>${this._t("rules.card_background")}</span></label></div>
 						</section>
 						<section class="rule-editor-group">
-							<div class="rule-editor-group-title">Behavior</div>
-							<label class="compact-option"><ha-switch data-rule-option="show_first_match_only" ${rule.show_first_match_only === true ? "checked" : ""}></ha-switch><span>Only show the next matching event</span></label>
+							<div class="rule-editor-group-title">${this._t("rules.group_behavior")}</div>
+							<label class="compact-option"><ha-switch data-rule-option="show_first_match_only" ${rule.show_first_match_only === true ? "checked" : ""}></ha-switch><span>${this._t("rules.next_match_only")}</span></label>
 						</section>
 						<section class="rule-editor-group">
-							<div class="rule-editor-group-title">Highlight</div>
+							<div class="rule-editor-group-title">${this._t("rules.group_highlight")}</div>
 							<div class="rule-highlight-grid">
-								<div class="rule-highlight-card"><label class="compact-option rule-highlight-toggle"><ha-switch data-rule-option="blink_background" ${rule.blink_background === true ? "checked" : ""}></ha-switch><span>Blink</span></label><div class="rule-highlight-options${rule.blink_background === true ? "" : " hidden"}" data-rule-highlight-options="blink"><label>Start before timed event<select data-rule-highlight-start="blink">${this._highlightStartOptions(rule.blink_start_minutes)}</select></label><small>All-day events start blinking on the event day.</small></div></div>
-								<div class="rule-highlight-card"><label class="compact-option rule-highlight-toggle"><ha-switch data-rule-option="pulse_background" ${rule.pulse_background === true ? "checked" : ""}></ha-switch><span>Pulse</span></label><div class="rule-highlight-options${rule.pulse_background === true ? "" : " hidden"}" data-rule-highlight-options="pulse"><label>Start before timed event<select data-rule-highlight-start="pulse">${this._highlightStartOptions(rule.pulse_start_minutes)}</select></label><small>All-day events start pulsing on the event day.</small></div></div>
+								<div class="rule-highlight-card">
+									<label class="compact-option rule-highlight-toggle"><ha-switch data-rule-option="blink_background" ${rule.blink_background === true ? "checked" : ""}></ha-switch><span>${this._t("rules.blink")}</span></label>
+									<div class="rule-highlight-options${rule.blink_background === true ? "" : " hidden"}" data-rule-highlight-options="blink">
+										<div class="rule-duration-row">
+											<input data-rule-highlight-value="blink" type="number" min="1" max="${blinkDurationUnit === "hours" ? 24 : 59}" step="1" value="${blinkDurationValue}">
+											<select data-rule-highlight-unit="blink"><option value="minutes"${blinkDurationUnit === "minutes" ? " selected" : ""}>${this._t("rules.minutes")}</option><option value="hours"${blinkDurationUnit === "hours" ? " selected" : ""}>${this._t("rules.hours")}</option></select>
+										</div>
+										<span class="rule-highlight-label">${this._t("rules.start_before")}</span>
+										<small>${this._t("rules.all_day_blink")}</small>
+									</div>
+								</div>
+								<div class="rule-highlight-card">
+									<label class="compact-option rule-highlight-toggle"><ha-switch data-rule-option="pulse_background" ${rule.pulse_background === true ? "checked" : ""}></ha-switch><span>${this._t("rules.pulse")}</span></label>
+									<div class="rule-highlight-options${rule.pulse_background === true ? "" : " hidden"}" data-rule-highlight-options="pulse">
+										<div class="rule-duration-row">
+											<input data-rule-highlight-value="pulse" type="number" min="1" max="${pulseDurationUnit === "hours" ? 24 : 59}" step="1" value="${pulseDurationValue}">
+											<select data-rule-highlight-unit="pulse"><option value="minutes"${pulseDurationUnit === "minutes" ? " selected" : ""}>${this._t("rules.minutes")}</option><option value="hours"${pulseDurationUnit === "hours" ? " selected" : ""}>${this._t("rules.hours")}</option></select>
+										</div>
+										<span class="rule-highlight-label">${this._t("rules.start_before")}</span>
+										<small>${this._t("rules.all_day_pulse")}</small>
+									</div>
+								</div>
 							</div>
 						</section>
 					</div>
@@ -2365,19 +2846,26 @@ class EventSpotlightCardEditor extends HTMLElement {
 				.rule-card-content { display:grid; gap:12px; padding:12px; }
 				.rule-appearance { display:grid; gap:12px; }
 				.rule-editor-group { display:grid; gap:10px; padding:12px; border:1px solid var(--divider-color); border-radius:10px; background:var(--ha-card-background,var(--card-background-color)); }
+				.rule-grid { display:grid; gap:10px; }
 				.rule-editor-group-title { color:var(--primary-text-color); font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
 				.rule-highlight-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 				.rule-highlight-card { display:grid; align-content:start; gap:8px; padding:10px; border:1px solid var(--divider-color); border-radius:9px; background:var(--secondary-background-color); }
 				.rule-highlight-toggle { font-weight:600; }
 				.rule-highlight-options { display:grid; gap:6px; }
+				.rule-highlight-label { color:var(--secondary-text-color); font-size:12px; }
+				.rule-duration-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(100px,auto); gap:8px; }
+				.rule-duration-row input,
+				.rule-duration-row select { min-width:0; }
 
 				.rule-appearance-form {
 					display: block;
 					width: 100%;
 				}
 
-				.rule-blink-options small {
+				.rule-highlight-options small {
+					margin-top: 4px;
 					color: var(--secondary-text-color);
+					line-height: 1.35;
 				}
 
 				.rule-color-options {
@@ -2489,70 +2977,70 @@ class EventSpotlightCardEditor extends HTMLElement {
 			</style>
 			<div class="editor">
 				<details class="section" data-section="calendars"${this._sectionState.calendars ? " open" : ""}>
-					${this._sectionSummary(icons.calendars, "Calendars")}
+					${this._sectionSummary(icons.calendars, this._t("sections.calendars"))}
 					<div class="section-content">
 						<div class="field">
-							<span>Add calendar</span>
+							<span>${this._t("calendars.add")}</span>
 							<ha-selector data-calendar-add></ha-selector>
 						</div>
 						<div class="calendar-settings">
-							${calendarSettingsRows || `<div class="calendar-empty">No calendar selected.</div>`}
+							${calendarSettingsRows || `<div class="calendar-empty">${this._t("calendars.empty")}</div>`}
 						</div>
 					</div>
 				</details>
 
 				<details class="section" data-section="general"${this._sectionState.general ? " open" : ""}>
-					${this._sectionSummary(icons.general, "General")}
+					${this._sectionSummary(icons.general, this._t("sections.general"))}
 					<div class="section-content">
 						<label>
-							Card title
-							<input data-config="name" type="text" placeholder="Upcoming Events">
+							${this._t("general.card_title")}
+							<input data-config="name" type="text" placeholder="${this._t("general.card_title_placeholder")}">
 						</label>
 						<div class="grid">
 							<label>
-								Search range (days)
+								${this._t("general.search_range")}
 								<input data-config="days" type="number" min="1" max="365">
 							</label>
 							<label>
-								Update interval (minutes)
+								${this._t("general.update_interval")}
 								<input data-config="update_interval" type="number" min="1" max="1440" step="1">
 							</label>
 						</div>
-						${this._selector("all_day_hide_time", "All-day event hide time")}
-						${this._selector("language", "Card display language")}
+						${this._selector("all_day_hide_time", this._t("general.all_day_hide_time"))}
+						${this._selector("language", this._t("general.language"))}
 					</div>
 				</details>
 
 				<details class="section" data-section="appearance"${this._sectionState.appearance ? " open" : ""}>
-					${this._sectionSummary(icons.appearance, "Appearance")}
+					${this._sectionSummary(icons.appearance, this._t("sections.appearance"))}
 					<div class="section-content">
 						<div class="grid">
-							${this._selector("layout", "Layout")}
+							${this._selector("layout", this._t("appearance.layout"))}
 							<div class="arrangement-field${this._supportsCardArrangement() ? "" : " disabled"}">
-								${this._selector("card_arrangement", "Card arrangement")}
+								${this._selector("card_arrangement", this._t("appearance.arrangement"))}
 							</div>
 						</div>
-						${this._switchRow("show_title", "Show card header")}
-						${this._switchRow("show_title_icon", "Show header icon")}
-						${this._switchRow("show_card_background", "Show card background")}
+						${this._switchRow("show_title", this._t("appearance.show_header"))}
+						${this._switchRow("show_title_icon", this._t("appearance.show_header_icon"))}
+						${this._switchRow("show_card_background", this._t("appearance.show_card_background"))}
 						${(this._config.layout || EventSpotlightCard.FIELD_DEFAULTS.layout) === "ticker" ? `
 							<div class="ticker-appearance-options">
-								${this._switchRow("ticker_mushroom_shape", "Use Mushroom card shape")}
-								${this._switchRow("ticker_invert_light_colors", "Invert light theme colors")}
+								${this._switchRow("ticker_mushroom_shape", this._t("appearance.mushroom_shape"))}
+								${this._switchRow("ticker_invert_light_colors", this._t("appearance.invert_light_colors"))}
 							</div>` : ""}
 						<div class="appearance-order-list">${this._appearanceRows()}</div>
 					</div>
 				</details>
 
 				<details class="section" data-section="rules"${this._sectionState.rules ? " open" : ""}>
-					${this._sectionSummary(icons.rules, "Event rules")}
+					${this._sectionSummary(icons.rules, this._t("sections.rules"))}
 					<div class="section-content">
 						<div class="rule-list">
-							${ruleBlocks || `<div class="rule-empty">No rules configured.</div>`}
+							${ruleBlocks || `<div class="rule-empty">${this._t("rules.empty")}</div>`}
 						</div>
 						<button class="rule-add" id="add-rule" type="button">
 							<ha-icon icon="mdi:plus"></ha-icon>
-							Add rule
+							${this._t("rules.add")}
 						</button>
 					</div>
 				</details>
@@ -2631,13 +3119,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 		};
 
 		this._config = config;
-		this.dispatchEvent(
-			new CustomEvent("config-changed", {
-				detail: { config: { ...config } },
-				bubbles: true,
-				composed: true,
-			}),
-		);
+		this._scheduleConfigChanged(config);
 
 		if (rerender) {
 			this._rendered = false;
@@ -2675,7 +3157,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 		const config = { ...this._config, display_order: order };
 		if (JSON.stringify(order) === JSON.stringify(EventSpotlightCard.FIELD_DEFAULTS.display_order)) delete config.display_order;
 		this._config = config;
-		this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: { ...config } }, bubbles: true, composed: true }));
+		this._scheduleConfigChanged(config);
 	}
 
 	_initializeRules() {
@@ -2686,13 +3168,13 @@ class EventSpotlightCardEditor extends HTMLElement {
 				schema: [
 					{
 						name: "icon",
-						label: "Icon",
+						label: this._t("rules.icon"),
 						selector: { icon: {} },
 						context: { icon_entity: "entity" },
 					},
 					{
 						name: "color",
-						label: "Color",
+						label: this._t("rules.color"),
 						selector: { ui_color: {} },
 					},
 				],
@@ -2769,28 +3251,46 @@ class EventSpotlightCardEditor extends HTMLElement {
 					const effect = key === "blink_background" ? "blink" : "pulse";
 					const options = row.querySelector(`[data-rule-highlight-options="${effect}"]`);
 					options?.classList.toggle("hidden", !toggle.checked);
-					const select = row.querySelector(`[data-rule-highlight-start="${effect}"]`);
-					if (select && toggle.checked) select.value = "30";
+					const valueInput = row.querySelector(`[data-rule-highlight-value="${effect}"]`);
+					const unitSelect = row.querySelector(`[data-rule-highlight-unit="${effect}"]`);
+					if (toggle.checked) {
+						if (valueInput) {
+							valueInput.value = "30";
+							valueInput.max = "59";
+						}
+						if (unitSelect) unitSelect.value = "minutes";
+					}
 				}
 				this._setRules(rules, false);
 			});
 		});
 
-		this.querySelectorAll("[data-rule-highlight-start]").forEach((select) => {
-			select.addEventListener("change", () => {
-				const row = select.closest("[data-rule-index]");
+		this.querySelectorAll("[data-rule-highlight-value], [data-rule-highlight-unit]").forEach((control) => {
+			const eventName = control.dataset.ruleHighlightValue ? "input" : "change";
+			control.addEventListener(eventName, () => {
+				const row = control.closest("[data-rule-index]");
 				const index = Number(row?.dataset.ruleIndex);
 				if (!Number.isInteger(index)) return;
-				const effect = select.dataset.ruleHighlightStart;
+				const effect = control.dataset.ruleHighlightValue || control.dataset.ruleHighlightUnit;
 				if (!["blink", "pulse"].includes(effect)) return;
+				const valueInput = row.querySelector(`[data-rule-highlight-value="${effect}"]`);
+				const unitSelect = row.querySelector(`[data-rule-highlight-unit="${effect}"]`);
+				if (!valueInput || !unitSelect) return;
+				const unit = unitSelect.value === "hours" ? "hours" : "minutes";
+				const max = unit === "hours" ? 24 : 59;
+				const duration = Math.min(max, Math.max(1, Number(valueInput.value) || 1));
+				valueInput.min = "1";
+				valueInput.max = String(max);
+				valueInput.value = String(duration);
 				const rules = [...(this._config.rules || [])];
 				const current = { ...(rules[index] || {}) };
 				const key = effect === "blink" ? "blink_start_minutes" : "pulse_start_minutes";
-				current[key] = Math.min(360, Math.max(30, Number(select.value) || 30));
+				current[key] = this._highlightDurationMinutes(duration, unit);
 				rules[index] = current;
 				this._setRules(rules, false);
 			});
 		});
+
 		const addRuleButton = this.querySelector("#add-rule");
 
 		if (addRuleButton) {
@@ -2909,7 +3409,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 
 			const title = row.querySelector(".rule-card-title");
 			if (title) {
-				title.textContent = String(rule.rule_name || "").trim() || String(rule.value || "").trim() || `Rule ${index + 1}`;
+				title.textContent = String(rule.rule_name || "").trim() || String(rule.value || "").trim() || this._ruleFallbackName(index);
 			}
 
 			row.querySelectorAll("[data-rule-key]").forEach((element) => {
@@ -2921,7 +3421,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 			const isExclude = action === "exclude";
 			const badge = row.querySelector(".rule-type");
 			if (badge) {
-				badge.textContent = isExclude ? "Exclude" : "Include";
+				badge.textContent = this._t(`options.${isExclude ? "exclude" : "include"}`);
 				badge.className = `rule-type rule-type-${action}`;
 			}
 			row.querySelector(".rule-appearance")?.classList.toggle("hidden", isExclude);
@@ -2940,8 +3440,15 @@ class EventSpotlightCardEditor extends HTMLElement {
 				["blink", rule.blink_background === true, rule.blink_start_minutes],
 				["pulse", rule.pulse_background === true, rule.pulse_start_minutes],
 			].forEach(([effect, enabled, startMinutes]) => {
-				const select = row.querySelector(`[data-rule-highlight-start="${effect}"]`);
-				if (select) select.value = String(startMinutes || 30);
+				const valueInput = row.querySelector(`[data-rule-highlight-value="${effect}"]`);
+				const unitSelect = row.querySelector(`[data-rule-highlight-unit="${effect}"]`);
+				const unit = this._highlightDurationUnit(startMinutes);
+				if (unitSelect) unitSelect.value = unit;
+				if (valueInput) {
+					valueInput.min = "1";
+					valueInput.max = unit === "hours" ? "24" : "59";
+					valueInput.value = String(this._highlightDurationValue(startMinutes));
+				}
 				row.querySelector(`[data-rule-highlight-options="${effect}"]`)
 					?.classList.toggle("hidden", !enabled);
 			});
@@ -2974,7 +3481,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 			const ruleName = key === "rule_name" ? value : current.rule_name;
 			const ruleValue = key === "value" ? value : current.value;
 			if (title) {
-				title.textContent = String(ruleName || "").trim() || String(ruleValue || "").trim() || `Rule ${index + 1}`;
+				title.textContent = String(ruleName || "").trim() || String(ruleValue || "").trim() || this._ruleFallbackName(index);
 			}
 		}
 
@@ -2983,7 +3490,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 			const badge = row.querySelector(".rule-type");
 			const appearance = row.querySelector(".rule-appearance");
 			if (badge) {
-				badge.textContent = isExclude ? "Exclude" : "Include";
+				badge.textContent = this._t(`options.${isExclude ? "exclude" : "include"}`);
 				badge.className = `rule-type rule-type-${isExclude ? "exclude" : "include"}`;
 			}
 			row.querySelector(".rule-appearance")?.classList.toggle("hidden", isExclude);
@@ -3039,16 +3546,10 @@ class EventSpotlightCardEditor extends HTMLElement {
 			title.textContent =
 				trimmedRuleName ||
 				String(current.value || "").trim() ||
-				`Rule ${index + 1}`;
+				this._ruleFallbackName(index);
 		}
 
-		this.dispatchEvent(
-			new CustomEvent("config-changed", {
-				detail: { config: { ...this._config } },
-				bubbles: true,
-				composed: true,
-			}),
-		);
+		this._scheduleConfigChanged(this._config);
 	}
 
 	_updateRuleAction(element, value) {
@@ -3104,15 +3605,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 		}
 
 		this._config = config;
-		this.dispatchEvent(
-			new CustomEvent("config-changed", {
-				detail: {
-					config: { ...config },
-				},
-				bubbles: true,
-				composed: true,
-			}),
-		);
+		this._scheduleConfigChanged(config);
 
 		if (rerender) {
 			this._sectionState.rules = true;
@@ -3132,9 +3625,11 @@ class EventSpotlightCardEditor extends HTMLElement {
 					select: {
 						mode: "dropdown",
 						options: [
-							{ value: "auto", label: "Auto" },
-							{ value: "en", label: "English" },
-							{ value: "fr", label: "Français" },
+							{ value: "auto", label: this._t("options.auto") },
+							...Object.entries(TRANSLATIONS).map(([code, language]) => ({
+								value: code,
+								label: language.meta?.name || code,
+							})),
 						],
 					},
 				};
@@ -3157,14 +3652,14 @@ class EventSpotlightCardEditor extends HTMLElement {
 					select: {
 						mode: "dropdown",
 						options: [
-							{ value: "left", label: "Left" },
-							{ value: "center", label: "Center" },
-							{ value: "right", label: "Right" },
-							{ value: "justified", label: "Justified" },
-							{ value: "stretched", label: "Stretched" },
-							{ value: "list", label: "List" },
-							{ value: "2-columns", label: "2 columns" },
-							{ value: "3-columns", label: "3 columns" },
+							{ value: "left", label: this._t("options.left") },
+							{ value: "center", label: this._t("options.center") },
+							{ value: "right", label: this._t("options.right") },
+							{ value: "justified", label: this._t("options.justified") },
+							{ value: "stretched", label: this._t("options.stretched") },
+							{ value: "list", label: this._t("options.list") },
+							{ value: "2-columns", label: this._t("options.two_columns") },
+							{ value: "3-columns", label: this._t("options.three_columns") },
 						],
 					},
 				};
@@ -3244,14 +3739,8 @@ class EventSpotlightCardEditor extends HTMLElement {
 		)
 			delete config[key];
 		this._config = config;
-		this.dispatchEvent(
-			new CustomEvent("config-changed", {
-				detail: { config: { ...config } },
-				bubbles: true,
-				composed: true,
-			}),
-		);
-		if (key === "layout") {
+		this._scheduleConfigChanged(config);
+		if (key === "layout" || key === "language") {
 			this._render();
 			this._updateValues();
 		}

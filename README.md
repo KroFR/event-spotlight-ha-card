@@ -23,7 +23,8 @@ Instead of displaying every event from your calendars, Event Spotlight Card uses
 - Six layouts: `Bubble`, `Chips`, `Mushroom`, `Pro`, `Square`, and `Ticker`
 - Eight card arrangements for Chips and Mushroom: `Left`, `Center`, `Right`, `Justified`, `Stretched`, `List`, `2 columns`, and `3 columns`
 - Optional relative date, time, description, location, and calendar source
-- Automatic refresh, live Light/Dark theme updates, English/French localization, and a visual editor
+- Light and dark mode support, matching Home Assistant's native color scheme
+- English and French localization for both the card and visual editor, with automatic Home Assistant language detection
 - Visual editor: fully configurable through the Lovelace UI editor, no YAML required
 
 > [!IMPORTANT]
@@ -64,7 +65,7 @@ or
 1. Edit a dashboard and select **Add Card**.
 2. Search for **Event Spotlight Card**.
 3. Add one or more calendars.
-4. Open **Event rules** and create at least one Include rule.
+4. Open **Display rules** and create at least one Include rule.
 5. Choose a layout and customize the appearance.
 
 A minimal useful configuration looks like this:
@@ -82,7 +83,7 @@ rules:
     color: pink
 ```
 
-Without a matching Include rule, the card displays `No matching events`.
+Without a matching Include rule, the card displays `No events to display`.
 
 ## ⚙️ Configuration
 
@@ -105,7 +106,7 @@ The calendars are only event sources. Event rules decide which events are displa
 |---|---|---:|---|---|
 | `type` | string | yes | — | `custom:event-spotlight-card` |
 | `calendars` | list | yes | — | One or more `calendar.*` entities |
-| `name` | string | no | `Upcoming Events` | Card header title |
+| `name` | string | no | `Localized default title` | Card header title |
 | `days` | number | no | `30` | Number of days to search ahead |
 | `update_interval` | number | no | `60` | Calendar refresh interval in minutes, from 1 to 1440 |
 | `all_day_hide_time` | time | no | `23:59` | Time at which today's all-day events disappear |
@@ -230,9 +231,9 @@ rules:
 | `show_background_color` | `true`, `false` | Apply the selected color to the event background |
 | `show_first_match_only` | `true`, `false` | Display only the next upcoming event matching this rule |
 | `blink_background` | `true`, `false` | Blink the event background when the configured highlight period starts |
-| `blink_start_minutes` | `30` to `360`, 30-minute steps | Number of minutes before a timed event when Blink starts |
+| `blink_start_minutes` | `1` to `1440` | Number of minutes before a timed event when Blink starts |
 | `pulse_background` | `true`, `false` | Pulse the event when the configured highlight period starts |
-| `pulse_start_minutes` | `30` to `360`, 30-minute steps | Number of minutes before a timed event when Pulse starts |
+| `pulse_start_minutes` | `1` to `1440` | Number of minutes before a timed event when Pulse starts |
 
 Blink and Pulse can be used independently or together. For all-day events, enabled effects start on the event day and remain active until the event is hidden at the time defined by `all_day_hide_time`.
 
