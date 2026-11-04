@@ -103,6 +103,7 @@ class EventSpotlightCard extends HTMLElement {
 		this._loading = false;
 		this._error = "";
 		this._loadKey = "";
+		this._pendingLoad = false;
 		this._allDayTimer = null;
 		this._updateTimer = null;
 		this._tickerTimer = null;
@@ -136,18 +137,41 @@ class EventSpotlightCard extends HTMLElement {
 	}
 
 	setConfig(config) {
+		const previousLoadKey = this._config
+			? this._dataLoadKey(this._config)
+			: null;
+
 		const calendars = this._normalizeCalendars(
 			config.calendars || config.entities || [],
 		);
-		this._config = { ...config, calendars };
+
+		this._config = {
+			...config,
+			calendars,
+		};
+
+		const nextLoadKey = this._dataLoadKey(this._config);
+
 		this._scheduleUpdate();
+
+		if (!this._hass || !this.shadowRoot) {
+			return;
+		}
+
+		if (previousLoadKey !== nextLoadKey) {
+			this._requestEventsLoad();
+			return;
+		}
+
+		this._render();
 	}
 
 	set hass(hass) {
 		const initialHass = !this._hass;
 		const previousDarkMode = Boolean(this._hass?.themes?.darkMode);
 		const darkMode = Boolean(hass?.themes?.darkMode);
-		const themeChanged = !initialHass && previousDarkMode !== darkMode;
+		const themeChanged =
+			!initialHass && previousDarkMode !== darkMode;
 
 		this._hass = hass;
 
@@ -155,15 +179,18 @@ class EventSpotlightCard extends HTMLElement {
 			this.attachShadow({ mode: "open" });
 		}
 
-		const key = JSON.stringify([
-			this._calendarIds(),
-			this._config?.days,
-			this._rulesLoadKey(),
-		]);
+		if (!this._config) {
+			return;
+		}
 
-		if (key !== this._loadKey) {
-			this._loadEvents();
-		} else if (initialHass || themeChanged) {
+		const loadKey = this._dataLoadKey();
+
+		if (loadKey !== this._loadKey) {
+			this._requestEventsLoad();
+			return;
+		}
+
+		if (initialHass || themeChanged) {
 			this._render();
 		}
 	}
@@ -197,12 +224,23 @@ class EventSpotlightCard extends HTMLElement {
 			.filter((item) => item?.entity?.startsWith("calendar."));
 	}
 
-	_calendarIds() {
-		return (this._config?.calendars || []).map((item) => item.entity);
-	}
+	_dataLoadKey(config = this._config) {
+		const calendars = this._normalizeCalendars(
+			config?.calendars || config?.entities || [],
+		);
 
-	_rulesLoadKey() {
-		return (this._config?.rules || []).map(({ rule_name, ...rule }) => rule);
+		const rules = (config?.rules || []).map((rule) => ({
+			action: this._normalizeRuleAction(rule.action),
+			field: this._normalizeRuleField(rule.field),
+			operator: this._normalizeRuleOperator(rule.operator),
+			value: rule.value,
+		}));
+
+		return JSON.stringify([
+			calendars.map((calendar) => calendar.entity),
+			config?.days ?? EventSpotlightCard.FIELD_DEFAULTS.days,
+			rules,
+		]);
 	}
 
 	_lang() {
@@ -340,15 +378,35 @@ class EventSpotlightCard extends HTMLElement {
 		const state = this._hass.states[calendar.entity];
 		const calendarName =
 			calendar.name || state?.attributes?.friendly_name || calendar.entity;
+
 		const base = {
 			...event,
-			summary: this._limitText(event.summary, EventSpotlightCard.SECURITY_LIMITS.title),
-			description: this._limitText(event.description, EventSpotlightCard.SECURITY_LIMITS.description),
-			location: this._limitText(event.location, EventSpotlightCard.SECURITY_LIMITS.location),
-			calendar: this._limitText(calendar.entity, EventSpotlightCard.SECURITY_LIMITS.calendar),
-			calendar_name: this._limitText(calendarName, EventSpotlightCard.SECURITY_LIMITS.calendar),
+			summary: this._limitText(
+				event.summary,
+				EventSpotlightCard.SECURITY_LIMITS.title,
+			),
+			description: this._limitText(
+				event.description,
+				EventSpotlightCard.SECURITY_LIMITS.description,
+			),
+			location: this._limitText(
+				event.location,
+				EventSpotlightCard.SECURITY_LIMITS.location,
+			),
+			calendar: this._limitText(
+				calendar.entity,
+				EventSpotlightCard.SECURITY_LIMITS.calendar,
+			),
+			calendar_name: this._limitText(
+				calendarName,
+				EventSpotlightCard.SECURITY_LIMITS.calendar,
+			),
 			start_date: this._date(event.start),
+			default_icon: this._safeIcon(
+				calendar.icon || state?.attributes?.icon,
+			),
 		};
+
 		const rules = this._config.rules || [];
 		const matchIndex = rules.findIndex(
 			(rule) =>
@@ -356,34 +414,68 @@ class EventSpotlightCard extends HTMLElement {
 				Boolean(rule.value) &&
 				this._ruleMatches(base, rule),
 		);
-		const match = matchIndex >= 0 ? rules[matchIndex] : null;
 
 		return {
 			...base,
-			label: String(match?.label || "").trim() || base.summary || calendarName,
-			icon: this._safeIcon(
-				match?.icon || calendar.icon || state?.attributes?.icon,
-			),
-			color: this._resolveUiColor(match?.color),
-			show_icon_background_color: match?.show_icon_background_color !== false,
-			show_background_color: match?.show_background_color !== false,
-			blink_background: match?.blink_background === true,
-			pulse_background: match?.pulse_background === true,
+			primary_rule_index: matchIndex,
+		};
+	}
+
+	_applyRuleAppearance(event) {
+		const rule =
+			event.primary_rule_index >= 0
+				? this._config.rules?.[event.primary_rule_index]
+				: null;
+
+		return {
+			...event,
+			label:
+				String(rule?.label || "").trim() ||
+				event.summary ||
+				event.calendar_name,
+			icon: this._safeIcon(rule?.icon || event.default_icon),
+			color: this._resolveUiColor(rule?.color),
+			show_icon_background_color:
+				rule?.show_icon_background_color !== false,
+			show_background_color:
+				rule?.show_background_color !== false,
+			blink_background: rule?.blink_background === true,
+			pulse_background: rule?.pulse_background === true,
 			blink_start_minutes: this._clampedNumber(
-				match?.blink_start_minutes,
+				rule?.blink_start_minutes,
 				30,
 				1,
 				1440,
 			),
 			pulse_start_minutes: this._clampedNumber(
-				match?.pulse_start_minutes,
+				rule?.pulse_start_minutes,
 				30,
 				1,
 				1440,
 			),
-			primary_rule_index: matchIndex,
-			show_first_match_only: match?.show_first_match_only === true,
+			show_first_match_only:
+				rule?.show_first_match_only === true,
 		};
+	}
+
+	_filterFirstRuleMatches(events) {
+		const matchedRules = new Set();
+
+		return events.filter((event) => {
+			if (
+				!event.show_first_match_only ||
+				event.primary_rule_index < 0
+			) {
+				return true;
+			}
+
+			if (matchedRules.has(event.primary_rule_index)) {
+				return false;
+			}
+
+			matchedRules.add(event.primary_rule_index);
+			return true;
+		});
 	}
 
 	_safeIcon(icon, fallback = "mdi:calendar") {
@@ -435,7 +527,8 @@ class EventSpotlightCard extends HTMLElement {
 		if (!this.isConnected || !this._config) return;
 		this._updateTimer = setTimeout(() => {
 			this._updateTimer = null;
-			this._loadEvents();
+			this._loadKey = "";
+			this._requestEventsLoad();
 			this._scheduleUpdate();
 		}, this._updateIntervalMinutes() * 60 * 1000);
 	}
@@ -594,32 +687,69 @@ class EventSpotlightCard extends HTMLElement {
 		);
 	}
 
-	async _loadEvents() {
-		if (!this._hass || !this._config || this._loading) return;
-		const calendars = this._config.calendars || [];
-		if (!calendars.length) {
-			this._events = [];
+	_requestEventsLoad() {
+		if (!this._hass || !this._config) {
+			return;
+		}
+
+		const requestedLoadKey = this._dataLoadKey();
+
+		if (requestedLoadKey === this._loadKey) {
 			this._render();
 			return;
 		}
-		this._loading = true;
-		this._error = "";
-		this._render();
-		const days = this._clampedNumber(
+
+		if (this._loading) {
+			this._pendingLoad = true;
+			return;
+		}
+
+		this._loadEvents(requestedLoadKey);
+	}
+
+	async _loadEvents(requestedLoadKey = this._dataLoadKey()) {
+		if (!this._hass || !this._config) {
+			return;
+		}
+
+		if (this._loading) {
+			this._pendingLoad = true;
+			return;
+		}
+
+		const calendars = this._config.calendars || [];
+		const requestedCalendars = calendars.map((calendar) => ({
+			...calendar,
+		}));
+
+		const requestedDays = this._clampedNumber(
 			this._config.days,
 			EventSpotlightCard.FIELD_DEFAULTS.days,
 			EventSpotlightCard.SECURITY_LIMITS.days.min,
 			EventSpotlightCard.SECURITY_LIMITS.days.max,
 		);
+		if (!calendars.length) {
+			this._events = [];
+			this._loadKey = requestedLoadKey;
+			this._render();
+			return;
+		}
+		this._pendingLoad = false;
+		this._loading = true;
+		this._error = "";
+		this._render();
+
 		const start = new Date();
-		const end = new Date(start.getTime() + days * 86400000);
+		const end = new Date(
+			start.getTime() + requestedDays * 86400000,
+		);
 		try {
 			const result = await this._hass.connection.sendMessagePromise({
 				type: "execute_script",
 				sequence: [
 					{
 						action: "calendar.get_events",
-						target: { entity_id: calendars.map((calendar) => calendar.entity) },
+						target: { entity_id: requestedCalendars.map((calendar) => calendar.entity) },
 						data: {
 							start_date_time: start.toISOString(),
 							end_date_time: end.toISOString(),
@@ -633,7 +763,7 @@ class EventSpotlightCard extends HTMLElement {
 				],
 			});
 			const response = result?.response || result || {};
-			const responses = calendars.map((calendar) => {
+			const responses = requestedCalendars.map((calendar) => {
 				const events = response?.[calendar.entity]?.events || [];
 				return events.map((event) => this._decorate(event, calendar));
 			});
@@ -641,18 +771,12 @@ class EventSpotlightCard extends HTMLElement {
 				.flat()
 				.filter((event) => this._passes(event))
 				.sort((a, b) => a.start_date - b.start_date);
-			const firstMatchRules = new Set();
-			this._events = sortedEvents
-				.filter((event) => {
-					if (!event.show_first_match_only || event.primary_rule_index < 0) {
-						return true;
-					}
-					if (firstMatchRules.has(event.primary_rule_index)) return false;
-					firstMatchRules.add(event.primary_rule_index);
-					return true;
-				})
-				.slice(0, EventSpotlightCard.SECURITY_LIMITS.max_rendered_events);
-			this._loadKey = JSON.stringify([this._calendarIds(), this._config.days, this._rulesLoadKey()]);
+			this._events = sortedEvents.slice(
+				0,
+				EventSpotlightCard.SECURITY_LIMITS
+					.max_rendered_events,
+			);
+			this._loadKey = requestedLoadKey;
 		} catch (error) {
 			console.error(
 				"Event Spotlight Card: failed to load spotlight events",
@@ -663,6 +787,18 @@ class EventSpotlightCard extends HTMLElement {
 			this._loading = false;
 			this._render();
 			this._scheduleUpdate();
+
+			const currentLoadKey = this._dataLoadKey();
+
+			if (
+				this._pendingLoad ||
+				currentLoadKey !== this._loadKey
+			) {
+				this._pendingLoad = false;
+				queueMicrotask(() => {
+					this._requestEventsLoad();
+				});
+			}
 		}
 	}
 
@@ -844,8 +980,17 @@ class EventSpotlightCard extends HTMLElement {
 			: EventSpotlightCard.FIELD_DEFAULTS.card_arrangement;
 		const darkMode = Boolean(this._hass?.themes?.darkMode);
 		const now = new Date();
-		const visibleEvents = this._events.filter((event) => this._isEventVisible(event, now));
-		this._scheduleVisibilityRefresh(this._events, now);
+		const visibleEvents =
+			this._filterFirstRuleMatches(
+				this._events
+					.map((event) =>
+						this._applyRuleAppearance(event),
+					)
+					.filter((event) =>
+						this._isEventVisible(event, now),
+					),
+			);
+		this._scheduleVisibilityRefresh(visibleEvents, now);
 		this._scheduleBlinkRefresh(visibleEvents, now);
 
 		let contentBlock = "";
@@ -1873,6 +2018,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 		this._ruleInputTimer = null;
 		this._configDispatchTimer = null;
 		this._pendingConfigDispatch = null;
+		this._lastEmittedConfigKey = null;
 		this._pendingOpenRuleIndex = null;
 		this._sectionState = {
 			calendars: false,
@@ -1890,13 +2036,18 @@ class EventSpotlightCardEditor extends HTMLElement {
 
 	_scheduleConfigChanged(config = this._config) {
 		this._pendingConfigDispatch = { ...config };
+
 		if (this._configDispatchTimer) return;
 
 		this._configDispatchTimer = setTimeout(() => {
 			this._configDispatchTimer = null;
+
 			const pendingConfig = this._pendingConfigDispatch;
 			this._pendingConfigDispatch = null;
+
 			if (!pendingConfig) return;
+
+			this._lastEmittedConfigKey = JSON.stringify(pendingConfig);
 
 			this.dispatchEvent(
 				new CustomEvent("config-changed", {
@@ -1909,15 +2060,34 @@ class EventSpotlightCardEditor extends HTMLElement {
 	}
 
 	setConfig(config) {
-		const previousConfig = this._config;
 		const nextConfig = { ...config };
+
 		if (Array.isArray(nextConfig.rules)) {
 			nextConfig.rules = this._orderRules(nextConfig.rules);
 		}
+
+		const incomingKey = JSON.stringify(nextConfig);
+
+		if (
+			this._rendered &&
+			incomingKey === this._lastEmittedConfigKey
+		) {
+			this._config = nextConfig;
+			this._lastEmittedConfigKey = null;
+			this._updateValues();
+			return;
+		}
+
+		this._lastEmittedConfigKey = null;
+
+		const previousConfig = this._config;
+
 		const structureChanged =
 			!previousConfig ||
-			(previousConfig.calendars || []).length !== (nextConfig.calendars || []).length ||
-			(previousConfig.rules || []).length !== (nextConfig.rules || []).length ||
+			(previousConfig.calendars || []).length !==
+				(nextConfig.calendars || []).length ||
+			(previousConfig.rules || []).length !==
+				(nextConfig.rules || []).length ||
 			previousConfig.layout !== nextConfig.layout;
 
 		this._config = nextConfig;
@@ -1931,6 +2101,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 
 		this._updateValues();
 	}
+
 	set hass(hass) {
 		this._hass = hass;
 		if (!this._rendered && this._config) {
