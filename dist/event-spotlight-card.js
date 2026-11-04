@@ -5,7 +5,7 @@
 * License: MIT
 */
 
-const CARD_VERSION = "1.1.4";
+const CARD_VERSION = "1.1.5";
 
 /* ---------------------------------------------------------------------- */
 /*  Main card                                                             */
@@ -372,14 +372,14 @@ class EventSpotlightCard extends HTMLElement {
 			blink_start_minutes: this._clampedNumber(
 				match?.blink_start_minutes,
 				30,
-				30,
-				360,
+				1,
+				1440,
 			),
 			pulse_start_minutes: this._clampedNumber(
 				match?.pulse_start_minutes,
 				30,
-				30,
-				360,
+				1,
+				1440,
 			),
 			primary_rule_index: matchIndex,
 			show_first_match_only: match?.show_first_match_only === true,
@@ -465,8 +465,8 @@ class EventSpotlightCard extends HTMLElement {
 		const leadMinutes = this._clampedNumber(
 			configuredMinutes,
 			30,
-			30,
-			360,
+			1,
+			1440,
 		);
 		return now.getTime() >= event.start_date.getTime() - leadMinutes * 60000;
 	}
@@ -509,8 +509,8 @@ class EventSpotlightCard extends HTMLElement {
 				const leadMinutes = this._clampedNumber(
 					configuredMinutes,
 					30,
-					30,
-					360,
+					1,
+					1440,
 				);
 				const startAt = event.start_date.getTime() - leadMinutes * 60000;
 				if (startAt > now.getTime()) nextStarts.push(startAt);
@@ -1871,6 +1871,8 @@ class EventSpotlightCardEditor extends HTMLElement {
 		super();
 		this._rendered = false;
 		this._ruleInputTimer = null;
+		this._configDispatchTimer = null;
+		this._pendingConfigDispatch = null;
 		this._pendingOpenRuleIndex = null;
 		this._sectionState = {
 			calendars: false,
@@ -1878,6 +1880,32 @@ class EventSpotlightCardEditor extends HTMLElement {
 			appearance: false,
 			rules: false,
 		};
+	}
+
+	disconnectedCallback() {
+		if (this._configDispatchTimer) clearTimeout(this._configDispatchTimer);
+		this._configDispatchTimer = null;
+		this._pendingConfigDispatch = null;
+	}
+
+	_scheduleConfigChanged(config = this._config) {
+		this._pendingConfigDispatch = { ...config };
+		if (this._configDispatchTimer) return;
+
+		this._configDispatchTimer = setTimeout(() => {
+			this._configDispatchTimer = null;
+			const pendingConfig = this._pendingConfigDispatch;
+			this._pendingConfigDispatch = null;
+			if (!pendingConfig) return;
+
+			this.dispatchEvent(
+				new CustomEvent("config-changed", {
+					detail: { config: pendingConfig },
+					bubbles: true,
+					composed: true,
+				}),
+			);
+		}, 0);
 	}
 
 	setConfig(config) {
@@ -1991,18 +2019,27 @@ class EventSpotlightCardEditor extends HTMLElement {
 			: "contains";
 	}
 
-	_highlightStartOptions(value) {
-		const selected = Math.min(360, Math.max(30, Number(value) || 30));
-		return Array.from({ length: 12 }, (_, index) => (index + 1) * 30)
-			.map((minutes) => {
-				const hours = Math.floor(minutes / 60);
-				const remainingMinutes = minutes % 60;
-				const label = hours
-					? `${hours}h ${String(remainingMinutes).padStart(2, "0")}m`
-					: `${minutes} min`;
-				return `<option value="${minutes}"${selected === minutes ? " selected" : ""}>${label}</option>`;
-			})
-			.join("");
+	_highlightDurationValue(minutes) {
+		const totalMinutes = Math.min(1440, Math.max(1, Number(minutes) || 30));
+		return totalMinutes >= 60 && totalMinutes % 60 === 0
+			? totalMinutes / 60
+			: totalMinutes;
+	}
+
+	_highlightDurationUnit(minutes) {
+		const totalMinutes = Math.min(1440, Math.max(1, Number(minutes) || 30));
+		return totalMinutes >= 60 && totalMinutes % 60 === 0
+			? "hours"
+			: "minutes";
+	}
+
+	_highlightDurationMinutes(value, unit) {
+		const number = Number(value);
+		const safeValue = Number.isFinite(number) ? number : 30;
+		return Math.min(
+			1440,
+			Math.max(1, Math.round(safeValue * (unit === "hours" ? 60 : 1))),
+		);
 	}
 
 	_ruleRow(rule, index) {
@@ -2022,6 +2059,10 @@ class EventSpotlightCardEditor extends HTMLElement {
 			: this._escapeAttribute(this._safeIcon(rawIcon, "mdi:calendar"));
 		const iconColor = this._escapeAttribute(this._ruleIconColor(rule));
 		const actionLabel = action === "exclude" ? "Exclude" : "Include";
+		const blinkDurationValue = this._highlightDurationValue(rule.blink_start_minutes);
+		const blinkDurationUnit = this._highlightDurationUnit(rule.blink_start_minutes);
+		const pulseDurationValue = this._highlightDurationValue(rule.pulse_start_minutes);
+		const pulseDurationUnit = this._highlightDurationUnit(rule.pulse_start_minutes);
 
 		return `
 			<details class="rule-card" data-rule-index="${index}" draggable="false">
@@ -2055,8 +2096,28 @@ class EventSpotlightCardEditor extends HTMLElement {
 						<section class="rule-editor-group">
 							<div class="rule-editor-group-title">Highlight</div>
 							<div class="rule-highlight-grid">
-								<div class="rule-highlight-card"><label class="compact-option rule-highlight-toggle"><ha-switch data-rule-option="blink_background" ${rule.blink_background === true ? "checked" : ""}></ha-switch><span>Blink</span></label><div class="rule-highlight-options${rule.blink_background === true ? "" : " hidden"}" data-rule-highlight-options="blink"><label>Start before timed event<select data-rule-highlight-start="blink">${this._highlightStartOptions(rule.blink_start_minutes)}</select></label><small>All-day events start blinking on the event day.</small></div></div>
-								<div class="rule-highlight-card"><label class="compact-option rule-highlight-toggle"><ha-switch data-rule-option="pulse_background" ${rule.pulse_background === true ? "checked" : ""}></ha-switch><span>Pulse</span></label><div class="rule-highlight-options${rule.pulse_background === true ? "" : " hidden"}" data-rule-highlight-options="pulse"><label>Start before timed event<select data-rule-highlight-start="pulse">${this._highlightStartOptions(rule.pulse_start_minutes)}</select></label><small>All-day events start pulsing on the event day.</small></div></div>
+								<div class="rule-highlight-card">
+									<label class="compact-option rule-highlight-toggle"><ha-switch data-rule-option="blink_background" ${rule.blink_background === true ? "checked" : ""}></ha-switch><span>Blink</span></label>
+									<div class="rule-highlight-options${rule.blink_background === true ? "" : " hidden"}" data-rule-highlight-options="blink">
+										<span class="rule-highlight-label">Start before timed event</span>
+										<div class="rule-duration-row">
+											<input data-rule-highlight-value="blink" type="number" min="1" max="${blinkDurationUnit === "hours" ? 24 : 59}" step="1" value="${blinkDurationValue}">
+											<select data-rule-highlight-unit="blink"><option value="minutes"${blinkDurationUnit === "minutes" ? " selected" : ""}>Minutes</option><option value="hours"${blinkDurationUnit === "hours" ? " selected" : ""}>Hours</option></select>
+										</div>
+										<small>All-day events start blinking on the event day.</small>
+									</div>
+								</div>
+								<div class="rule-highlight-card">
+									<label class="compact-option rule-highlight-toggle"><ha-switch data-rule-option="pulse_background" ${rule.pulse_background === true ? "checked" : ""}></ha-switch><span>Pulse</span></label>
+									<div class="rule-highlight-options${rule.pulse_background === true ? "" : " hidden"}" data-rule-highlight-options="pulse">
+										<span class="rule-highlight-label">Start before timed event</span>
+										<div class="rule-duration-row">
+											<input data-rule-highlight-value="pulse" type="number" min="1" max="${pulseDurationUnit === "hours" ? 24 : 59}" step="1" value="${pulseDurationValue}">
+											<select data-rule-highlight-unit="pulse"><option value="minutes"${pulseDurationUnit === "minutes" ? " selected" : ""}>Minutes</option><option value="hours"${pulseDurationUnit === "hours" ? " selected" : ""}>Hours</option></select>
+										</div>
+										<small>All-day events start pulsing on the event day.</small>
+									</div>
+								</div>
 							</div>
 						</section>
 					</div>
@@ -2370,6 +2431,10 @@ class EventSpotlightCardEditor extends HTMLElement {
 				.rule-highlight-card { display:grid; align-content:start; gap:8px; padding:10px; border:1px solid var(--divider-color); border-radius:9px; background:var(--secondary-background-color); }
 				.rule-highlight-toggle { font-weight:600; }
 				.rule-highlight-options { display:grid; gap:6px; }
+				.rule-highlight-label { color:var(--secondary-text-color); font-size:12px; }
+				.rule-duration-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(100px,auto); gap:8px; }
+				.rule-duration-row input,
+				.rule-duration-row select { min-width:0; }
 
 				.rule-appearance-form {
 					display: block;
@@ -2631,13 +2696,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 		};
 
 		this._config = config;
-		this.dispatchEvent(
-			new CustomEvent("config-changed", {
-				detail: { config: { ...config } },
-				bubbles: true,
-				composed: true,
-			}),
-		);
+		this._scheduleConfigChanged(config);
 
 		if (rerender) {
 			this._rendered = false;
@@ -2675,7 +2734,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 		const config = { ...this._config, display_order: order };
 		if (JSON.stringify(order) === JSON.stringify(EventSpotlightCard.FIELD_DEFAULTS.display_order)) delete config.display_order;
 		this._config = config;
-		this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: { ...config } }, bubbles: true, composed: true }));
+		this._scheduleConfigChanged(config);
 	}
 
 	_initializeRules() {
@@ -2769,28 +2828,46 @@ class EventSpotlightCardEditor extends HTMLElement {
 					const effect = key === "blink_background" ? "blink" : "pulse";
 					const options = row.querySelector(`[data-rule-highlight-options="${effect}"]`);
 					options?.classList.toggle("hidden", !toggle.checked);
-					const select = row.querySelector(`[data-rule-highlight-start="${effect}"]`);
-					if (select && toggle.checked) select.value = "30";
+					const valueInput = row.querySelector(`[data-rule-highlight-value="${effect}"]`);
+					const unitSelect = row.querySelector(`[data-rule-highlight-unit="${effect}"]`);
+					if (toggle.checked) {
+						if (valueInput) {
+							valueInput.value = "30";
+							valueInput.max = "59";
+						}
+						if (unitSelect) unitSelect.value = "minutes";
+					}
 				}
 				this._setRules(rules, false);
 			});
 		});
 
-		this.querySelectorAll("[data-rule-highlight-start]").forEach((select) => {
-			select.addEventListener("change", () => {
-				const row = select.closest("[data-rule-index]");
+		this.querySelectorAll("[data-rule-highlight-value], [data-rule-highlight-unit]").forEach((control) => {
+			const eventName = control.dataset.ruleHighlightValue ? "input" : "change";
+			control.addEventListener(eventName, () => {
+				const row = control.closest("[data-rule-index]");
 				const index = Number(row?.dataset.ruleIndex);
 				if (!Number.isInteger(index)) return;
-				const effect = select.dataset.ruleHighlightStart;
+				const effect = control.dataset.ruleHighlightValue || control.dataset.ruleHighlightUnit;
 				if (!["blink", "pulse"].includes(effect)) return;
+				const valueInput = row.querySelector(`[data-rule-highlight-value="${effect}"]`);
+				const unitSelect = row.querySelector(`[data-rule-highlight-unit="${effect}"]`);
+				if (!valueInput || !unitSelect) return;
+				const unit = unitSelect.value === "hours" ? "hours" : "minutes";
+				const max = unit === "hours" ? 24 : 59;
+				const duration = Math.min(max, Math.max(1, Number(valueInput.value) || 1));
+				valueInput.min = "1";
+				valueInput.max = String(max);
+				valueInput.value = String(duration);
 				const rules = [...(this._config.rules || [])];
 				const current = { ...(rules[index] || {}) };
 				const key = effect === "blink" ? "blink_start_minutes" : "pulse_start_minutes";
-				current[key] = Math.min(360, Math.max(30, Number(select.value) || 30));
+				current[key] = this._highlightDurationMinutes(duration, unit);
 				rules[index] = current;
 				this._setRules(rules, false);
 			});
 		});
+
 		const addRuleButton = this.querySelector("#add-rule");
 
 		if (addRuleButton) {
@@ -2940,8 +3017,15 @@ class EventSpotlightCardEditor extends HTMLElement {
 				["blink", rule.blink_background === true, rule.blink_start_minutes],
 				["pulse", rule.pulse_background === true, rule.pulse_start_minutes],
 			].forEach(([effect, enabled, startMinutes]) => {
-				const select = row.querySelector(`[data-rule-highlight-start="${effect}"]`);
-				if (select) select.value = String(startMinutes || 30);
+				const valueInput = row.querySelector(`[data-rule-highlight-value="${effect}"]`);
+				const unitSelect = row.querySelector(`[data-rule-highlight-unit="${effect}"]`);
+				const unit = this._highlightDurationUnit(startMinutes);
+				if (unitSelect) unitSelect.value = unit;
+				if (valueInput) {
+					valueInput.min = "1";
+					valueInput.max = unit === "hours" ? "24" : "59";
+					valueInput.value = String(this._highlightDurationValue(startMinutes));
+				}
 				row.querySelector(`[data-rule-highlight-options="${effect}"]`)
 					?.classList.toggle("hidden", !enabled);
 			});
@@ -3042,13 +3126,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 				`Rule ${index + 1}`;
 		}
 
-		this.dispatchEvent(
-			new CustomEvent("config-changed", {
-				detail: { config: { ...this._config } },
-				bubbles: true,
-				composed: true,
-			}),
-		);
+		this._scheduleConfigChanged(this._config);
 	}
 
 	_updateRuleAction(element, value) {
@@ -3104,15 +3182,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 		}
 
 		this._config = config;
-		this.dispatchEvent(
-			new CustomEvent("config-changed", {
-				detail: {
-					config: { ...config },
-				},
-				bubbles: true,
-				composed: true,
-			}),
-		);
+		this._scheduleConfigChanged(config);
 
 		if (rerender) {
 			this._sectionState.rules = true;
@@ -3244,13 +3314,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 		)
 			delete config[key];
 		this._config = config;
-		this.dispatchEvent(
-			new CustomEvent("config-changed", {
-				detail: { config: { ...config } },
-				bubbles: true,
-				composed: true,
-			}),
-		);
+		this._scheduleConfigChanged(config);
 		if (key === "layout") {
 			this._render();
 			this._updateValues();
