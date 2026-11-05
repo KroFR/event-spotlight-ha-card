@@ -1819,6 +1819,7 @@ class EventSpotlightCard extends HTMLElement {
 				gap: 0;
 			}
 			.pro-event {
+				position: relative;
 				min-width: 0;
 				padding: 5px 7px;
 				border-radius: 0;
@@ -1831,6 +1832,9 @@ class EventSpotlightCard extends HTMLElement {
 			.pro-event.no-card-background-color {
 				border-radius: 0;
 				background: transparent;
+			}
+			.pro-event.event-glow {
+				z-index: 1;
 			}
 			.pro-title {
 				display: flex;
