@@ -89,10 +89,10 @@ const TRANSLATIONS = {
 				start_before: "Before the event starts",
 				minutes: "Minutes",
 				hours: "Hours",
-				all_day_blink: "For all-day events, blinking starts on the event day.",
-				all_day_pulse: "For all-day events, pulsing starts on the event day.",
-				all_day_glow: "For all-day events, glowing starts on the event day.",
-				all_day_bounce: "For all-day events, bouncing starts on the event day.",
+				all_day_blink: "For all-day events, the hide time is used as the event time.",
+				all_day_pulse: "For all-day events, the hide time is used as the event time.",
+				all_day_glow: "For all-day events, the hide time is used as the event time.",
+				all_day_bounce: "For all-day events, the hide time is used as the event time.",
 			},
 			options: {
 				auto: "Automatic",
@@ -196,10 +196,10 @@ const TRANSLATIONS = {
 				start_before: "Avant le début de l’événement",
 				minutes: "Minutes",
 				hours: "Heures",
-				all_day_blink: "Pour un événement de la journée, le clignotement commence le jour de l’événement.",
-				all_day_pulse: "Pour un événement de la journée, la pulsation commence le jour de l’événement.",
-				all_day_glow: "Pour un événement de la journée, le halo lumineux commence le jour de l’événement.",
-				all_day_bounce: "Pour un événement de la journée, le rebond commence le jour de l’événement.",
+				all_day_blink: "Pour les événements de la journée, l’heure de masquage est utilisée comme heure de référence.",
+				all_day_pulse: "Pour les événements de la journée, l’heure de masquage est utilisée comme heure de référence.",
+				all_day_glow: "Pour les événements de la journée, l’heure de masquage est utilisée comme heure de référence.",
+				all_day_bounce: "Pour les événements de la journée, l’heure de masquage est utilisée comme heure de référence.",
 			},
 			options: {
 				auto: "Automatique",
@@ -764,6 +764,22 @@ class EventSpotlightCard extends HTMLElement {
 		return /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : EventSpotlightCard.FIELD_DEFAULTS.all_day_hide_time;
 	}
 
+	_eventReferenceTime(event) {
+		const allDay = /^\d{4}-\d{2}-\d{2}$/.test(event.start || "");
+		if (!allDay) return event.start_date.getTime();
+
+		const [hour, minute] = this._allDayHideTime().split(":").map(Number);
+		return new Date(
+			event.start_date.getFullYear(),
+			event.start_date.getMonth(),
+			event.start_date.getDate(),
+			hour,
+			minute,
+			0,
+			0,
+		).getTime();
+	}
+
 	_isHighlightEffectActive(event, effect, now = new Date()) {
 		const effectConfig = {
 			blink: { enabled: event.blink_background, startMinutes: event.blink_start_minutes },
@@ -773,22 +789,16 @@ class EventSpotlightCard extends HTMLElement {
 		}[effect];
 		if (!effectConfig?.enabled) return false;
 
-		const allDay = /^\d{4}-\d{2}-\d{2}$/.test(event.start || "");
-		if (allDay) {
-			return now.getFullYear() === event.start_date.getFullYear() &&
-				now.getMonth() === event.start_date.getMonth() &&
-				now.getDate() === event.start_date.getDate() &&
-				this._isAllDayEventVisible(event, now);
-		}
-
-		const configuredMinutes = effectConfig.startMinutes;
 		const leadMinutes = this._clampedNumber(
-			configuredMinutes,
+			effectConfig.startMinutes,
 			30,
 			1,
 			1440,
 		);
-		return now.getTime() >= event.start_date.getTime() - leadMinutes * 60000;
+		const referenceTime = this._eventReferenceTime(event);
+		const currentTime = now.getTime();
+		return currentTime >= referenceTime - leadMinutes * 60000 &&
+			currentTime < referenceTime;
 	}
 
 	_highlightClasses(event, now = new Date()) {
@@ -806,25 +816,7 @@ class EventSpotlightCard extends HTMLElement {
 
 		const nextStarts = [];
 		events.forEach((event) => {
-			const allDay = /^\d{4}-\d{2}-\d{2}$/.test(event.start || "");
-			if (allDay) {
-				if (
-					(event.blink_background || event.pulse_background || event.glow_background || event.bounce_icon) &&
-					!this._isHighlightEffectActive(event, "blink", now) &&
-					!this._isHighlightEffectActive(event, "pulse", now) &&
-					!this._isHighlightEffectActive(event, "glow", now) &&
-					!this._isHighlightEffectActive(event, "bounce", now)
-				) {
-					const startOfDay = new Date(
-						event.start_date.getFullYear(),
-						event.start_date.getMonth(),
-						event.start_date.getDate(),
-					).getTime();
-					if (startOfDay > now.getTime()) nextStarts.push(startOfDay);
-				}
-				return;
-			}
-
+			const referenceTime = this._eventReferenceTime(event);
 			[
 				["blink", event.blink_background, event.blink_start_minutes],
 				["pulse", event.pulse_background, event.pulse_start_minutes],
@@ -838,7 +830,7 @@ class EventSpotlightCard extends HTMLElement {
 					1,
 					1440,
 				);
-				const startAt = event.start_date.getTime() - leadMinutes * 60000;
+				const startAt = referenceTime - leadMinutes * 60000;
 				if (startAt > now.getTime()) nextStarts.push(startAt);
 			});
 		});
