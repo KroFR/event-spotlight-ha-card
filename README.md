@@ -18,7 +18,7 @@ Instead of displaying every event from your calendars, Event Spotlight Card uses
 
 - Select events with ordered Include rules and priority Exclude rules
 - Match title, description, location, or calendar source with text operators or regular expressions
-- Customize matching events with labels, icons, colors, backgrounds, Blink, and Pulse effects
+- Customize matching events with labels, icons, colors, backgrounds, and Glow, Bounce, Pulse, or Blink effects
 - Show only the next event for recurring matches
 - Six layouts: `Bubble`, `Chips`, `Mushroom`, `Pro`, `Square`, and `Ticker`
 - Eight card arrangements for Chips and Mushroom: `Left`, `Center`, `Right`, `Justified`, `Stretched`, `List`, `2 columns`, and `3 columns`
@@ -109,7 +109,7 @@ The calendars are only event sources. Event rules decide which events are displa
 | `name` | string | no | `Localized default title` | Card header title |
 | `days` | number | no | `30` | Number of days to search ahead |
 | `update_interval` | number | no | `60` | Calendar refresh interval in minutes, from 1 to 1440 |
-| `all_day_hide_time` | time | no | `23:59` | Time at which today's all-day events disappear |
+| `all_day_hide_time` | time | no | `23:59` | Time at which all-day events disappear and reference time used by their highlight effects |
 | `language` | string | no | `auto` | `auto`, `en`, or `fr` |
 | `layout` | string | no | `mushroom` | `bubble`, `chips`, `mushroom`, `pro`, `square`, or `ticker` |
 | `card_arrangement` | string | no | `left` | Arrangement for Chips and Mushroom: `left`, `center`, `right`, `justified`, `stretched`, `list`, `2-columns`, or `3-columns` |
@@ -230,16 +230,23 @@ rules:
 | `show_icon_background_color` | `true`, `false` | Apply the selected color to the icon background |
 | `show_background_color` | `true`, `false` | Apply the selected color to the event background |
 | `show_first_match_only` | `true`, `false` | Display only the next upcoming event matching this rule |
-| `blink_background` | `true`, `false` | Blink the event background when the configured highlight period starts |
-| `blink_start_minutes` | `1` to `1440` | Number of minutes before a timed event when Blink starts |
+| `glow_background` | `true`, `false` | Add a soft colored glow when the configured highlight period starts |
+| `glow_start_minutes` | `1` to `1440` | Number of minutes before the event reference time when Glow starts |
+| `bounce_icon` | `true`, `false` | Bounce the event icon, or the event dot in Bubble and Ticker layouts |
+| `bounce_start_minutes` | `1` to `1440` | Number of minutes before the event reference time when Bounce starts |
 | `pulse_background` | `true`, `false` | Pulse the event when the configured highlight period starts |
-| `pulse_start_minutes` | `1` to `1440` | Number of minutes before a timed event when Pulse starts |
+| `pulse_start_minutes` | `1` to `1440` | Number of minutes before the event reference time when Pulse starts |
+| `blink_background` | `true`, `false` | Blink the event background when the configured highlight period starts |
+| `blink_start_minutes` | `1` to `1440` | Number of minutes before the event reference time when Blink starts |
 
-Blink and Pulse can be used independently or together. For all-day events, enabled effects start on the event day and remain active until the event is hidden at the time defined by `all_day_hide_time`.
+- Glow, Bounce, Pulse, and Blink can be used independently or combined.
+- For timed events, each lead time is counted back from the event start time. 
+- For all-day events, the lead time is counted back from `all_day_hide_time`, which acts as the event reference time.
+- Enabled effects stop when the event disappears.
 
 ### Matching operators
 
-| Operator| Description |
+| Operator | Description |
 | ------- | ----------- |
 | `contains` | The field contains the specified value anywhere in its text |
 | `equals` | The entire field exactly matches the specified value |
@@ -261,7 +268,8 @@ Regex examples:
 
 - Timed events disappear as soon as their start time is reached.
 - All-day events remain visible until `all_day_hide_time`, which defaults to `23:59`.
-- The card schedules these removals automatically. It does not wait for the next `update_interval` refresh.
+- For all-day events, this hide time also serves as the reference point for Glow, Bounce, Pulse, and Blink lead times.
+- The card schedules effect activation and event removal automatically without waiting for the next `update_interval` refresh.
 
 ## 🎨 Colors
 
@@ -355,6 +363,7 @@ rules:
 type: custom:event-spotlight-card
 calendars:
   - entity: calendar.personal
+all_day_hide_time: '18:00'
 rules:
   - action: include
     field: summary
@@ -363,11 +372,17 @@ rules:
     label: Medical appointment
     icon: mdi:doctor
     color: red
+    glow_background: true
+    glow_start_minutes: 360
+    bounce_icon: true
+    bounce_start_minutes: 120
     pulse_background: true
-    pulse_start_minutes: 120
+    pulse_start_minutes: 60
     blink_background: true
     blink_start_minutes: 30
 ```
+
+For an all-day event with `all_day_hide_time: "18:00"`, these values start Glow at `12:00`, Bounce at `16:00`, Pulse at `17:00`, and Blink at `17:30`. The event disappears at `18:00`.
 
 ### Include a category but remove cancelled events
 
