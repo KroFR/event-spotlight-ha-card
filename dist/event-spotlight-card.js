@@ -2021,6 +2021,33 @@ class EventSpotlightCard extends HTMLElement {
 				font-size: 14px;
 				background: var(--ticker-event-background, transparent);
 			}
+			.ticker-event {
+				position: relative;
+			}
+			.ticker-event.event-glow::after {
+				content: "";
+				position: absolute;
+				inset: 0;
+				border-radius: inherit;
+				pointer-events: none;
+				animation: event-spotlight-ticker-inset-glow 2.4s ease-in-out infinite;
+			}
+			@keyframes event-spotlight-ticker-inset-glow {
+				0%, 100% {
+					box-shadow: inset 0 0 4px color-mix(
+						in srgb,
+						var(--event-highlight-color, var(--primary-color)) 20%,
+						transparent
+					);
+				}
+				50% {
+					box-shadow: inset 0 0 10px color-mix(
+						in srgb,
+						var(--event-highlight-color, var(--primary-color)) 50%,
+						transparent
+					);
+				}
+			}
 			.ticker-dot {
 				width: 14px;
 				height: 14px;
@@ -2067,6 +2094,14 @@ class EventSpotlightCard extends HTMLElement {
 			@media (prefers-reduced-motion: reduce) {
 				.ticker-track {
 					transition: none;
+				}
+				.ticker-event.event-glow::after {
+					animation: none;
+					box-shadow: inset 0 0 7px color-mix(
+						in srgb,
+						var(--event-highlight-color, var(--primary-color)) 35%,
+						transparent
+					);
 				}
 			}
 
