@@ -18,7 +18,7 @@ Instead of displaying every event from your calendars, Event Spotlight Card uses
 
 - Select events with ordered Include rules and priority Exclude rules
 - Match title, description, location, or calendar source with text operators or regular expressions
-- Customize matching events with labels, icons, colors, backgrounds, Blink, and Pulse effects
+- Customize matching events with labels, icons, colors, backgrounds, and Glow, Bounce, Pulse, or Blink effects
 - Show only the next event for recurring matches
 - Six layouts: `Bubble`, `Chips`, `Mushroom`, `Pro`, `Square`, and `Ticker`
 - Eight card arrangements for Chips and Mushroom: `Left`, `Center`, `Right`, `Justified`, `Stretched`, `List`, `2 columns`, and `3 columns`
@@ -230,16 +230,20 @@ rules:
 | `show_icon_background_color` | `true`, `false` | Apply the selected color to the icon background |
 | `show_background_color` | `true`, `false` | Apply the selected color to the event background |
 | `show_first_match_only` | `true`, `false` | Display only the next upcoming event matching this rule |
-| `blink_background` | `true`, `false` | Blink the event background when the configured highlight period starts |
-| `blink_start_minutes` | `1` to `1440` | Number of minutes before a timed event when Blink starts |
+| `glow_background` | `true`, `false` | Add a soft colored glow when the configured highlight period starts |
+| `glow_start_minutes` | `1` to `1440` | Number of minutes before a timed event when Glow starts |
+| `bounce_icon` | `true`, `false` | Bounce the event icon, or the event dot in Bubble and Ticker layouts |
+| `bounce_start_minutes` | `1` to `1440` | Number of minutes before a timed event when Bounce starts |
 | `pulse_background` | `true`, `false` | Pulse the event when the configured highlight period starts |
 | `pulse_start_minutes` | `1` to `1440` | Number of minutes before a timed event when Pulse starts |
+| `blink_background` | `true`, `false` | Blink the event background when the configured highlight period starts |
+| `blink_start_minutes` | `1` to `1440` | Number of minutes before a timed event when Blink starts |
 
-Blink and Pulse can be used independently or together. For all-day events, enabled effects start on the event day and remain active until the event is hidden at the time defined by `all_day_hide_time`.
+Glow, Bounce, Pulse, and Blink can be used independently or combined. For all-day events, enabled effects start on the event day and remain active until the event is hidden at the time defined by `all_day_hide_time`.
 
 ### Matching operators
 
-| Operator| Description |
+| Operator | Description |
 | ------- | ----------- |
 | `contains` | The field contains the specified value anywhere in its text |
 | `equals` | The entire field exactly matches the specified value |
@@ -363,8 +367,12 @@ rules:
     label: Medical appointment
     icon: mdi:doctor
     color: red
+    glow_background: true
+    glow_start_minutes: 360
+    bounce_background: true
+    bounce_start_minutes: 120
     pulse_background: true
-    pulse_start_minutes: 120
+    pulse_start_minutes: 60
     blink_background: true
     blink_start_minutes: 30
 ```
