@@ -5,7 +5,7 @@
 * License: MIT
 */
 
-const CARD_VERSION = "1.1.6";
+const CARD_VERSION = "2026.11.1";
 
 /* ---------------------------------------------------------------------- */
 /*  Languages                                                             */
@@ -19,6 +19,7 @@ const TRANSLATIONS = {
 			title: "Upcoming Events",
 			loading: "Loading events…",
 			empty: "No events to display",
+			empty_day: "No event",
 			today: "Today",
 			tomorrow: "Tomorrow",
 			in_days: "In {n} days",
@@ -56,6 +57,7 @@ const TRANSLATIONS = {
 				show_description: "Show description",
 				show_location: "Show location",
 				show_calendar: "Show calendar name",
+				show_empty_days: "Show days without events",
 				mushroom_shape: "Use Mushroom style",
 				invert_light_colors: "Invert colors in light theme",
 			},
@@ -99,6 +101,7 @@ const TRANSLATIONS = {
 				include: "Show",
 				exclude: "Hide",
 				summary: "Title",
+				empty_day: "Empty day",
 				description: "Description",
 				location: "Location",
 				calendar: "Calendar",
@@ -126,6 +129,7 @@ const TRANSLATIONS = {
 			title: "Prochains événements",
 			loading: "Chargement des événements…",
 			empty: "Aucun événement à afficher",
+			empty_day: "Aucun événement",
 			today: "Aujourd’hui",
 			tomorrow: "Demain",
 			in_days: "Dans {n} jours",
@@ -163,6 +167,7 @@ const TRANSLATIONS = {
 				show_description: "Afficher la description",
 				show_location: "Afficher le lieu",
 				show_calendar: "Afficher le nom du calendrier",
+				show_empty_days: "Afficher les jours sans événement",
 				mushroom_shape: "Utiliser le style Mushroom",
 				invert_light_colors: "Inverser les couleurs en thème clair",
 			},
@@ -206,6 +211,7 @@ const TRANSLATIONS = {
 				include: "Afficher",
 				exclude: "Masquer",
 				summary: "Titre",
+				empty_day: "Jour sans événement",
 				description: "Description",
 				location: "Lieu",
 				calendar: "Calendrier",
@@ -263,6 +269,7 @@ class EventSpotlightCard extends HTMLElement {
 		show_time: true,
 		show_description: false,
 		show_location: false,
+		show_empty_days: false,
 		display_order: ["date_time", "description", "location", "calendar"],
 	};
 
@@ -280,7 +287,7 @@ class EventSpotlightCard extends HTMLElement {
 
 	static ICON_PREFIXES = ["mdi", "hacs", "advanced-camera-card"];
 	static RULE_ACTIONS = ["include", "exclude"];
-	static RULE_FIELDS = ["summary", "description", "location", "calendar"];
+	static RULE_FIELDS = ["summary", "description", "location", "calendar", "empty_day"];
 	static RULE_OPERATORS = ["contains", "equals", "starts_with", "ends_with", "regex"];
 
 	static getConfigElement() {
@@ -536,13 +543,14 @@ class EventSpotlightCard extends HTMLElement {
 	}
 
 	_ruleMatches(event, rule) {
+		const field = this._normalizeRuleField(rule?.field);
+		if (field === "empty_day") return event?.is_empty_day === true;
+
 		const value = this._limitText(
 			rule?.value,
 			EventSpotlightCard.SECURITY_LIMITS.rule_value,
 		).trim();
 		if (!value) return false;
-
-		const field = this._normalizeRuleField(rule?.field);
 		const operator = this._normalizeRuleOperator(rule?.operator);
 		const normalize = (text) => String(text ?? "").trim().toLocaleLowerCase();
 		const expected = normalize(value);
@@ -1187,6 +1195,50 @@ class EventSpotlightCard extends HTMLElement {
 		});
 	}
 
+	_eventsWithEmptyDays(events, now = new Date()) {
+		const showEmptyDays = this._config.show_empty_days ?? EventSpotlightCard.FIELD_DEFAULTS.show_empty_days;
+		if (!showEmptyDays) return events;
+		const requestedDays = this._clampedNumber(
+			this._config.days,
+			EventSpotlightCard.FIELD_DEFAULTS.days,
+			EventSpotlightCard.SECURITY_LIMITS.days.min,
+			EventSpotlightCard.SECURITY_LIMITS.days.max,
+		);
+		const startDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+		const occupied = new Set(events.map((event) => {
+			const d = event.start_date;
+			return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+		}));
+		const result = [...events];
+		for (let offset = 0; offset < requestedDays; offset += 1) {
+			const date = new Date(startDay);
+			date.setDate(startDay.getDate() + offset);
+			const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+			if (occupied.has(key)) continue;
+			const emptyEvent = {
+				is_empty_day: true,
+				start: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`,
+				start_date: date,
+				summary: this._t(this._lang(), "empty_day"),
+				label: this._t(this._lang(), "empty_day"),
+				description: "", location: "", calendar: "", calendar_name: "",
+				icon: "mdi:calendar-blank-outline", default_icon: "mdi:calendar-blank-outline",
+				color: "var(--secondary-text-color)",
+				show_icon_background_color: false, show_background_color: false,
+				blink_background: false, pulse_background: false, glow_background: false, bounce_icon: false,
+				primary_rule_index: -1, show_first_match_only: false,
+			};
+			emptyEvent.primary_rule_index = (this._config.rules || []).findIndex(
+				(rule) =>
+					this._normalizeRuleAction(rule.action) === "include" &&
+					this._normalizeRuleField(rule.field) === "empty_day" &&
+					this._ruleMatches(emptyEvent, rule),
+			);
+			result.push(this._applyRuleAppearance(emptyEvent));
+		}
+		return result.sort((a, b) => a.start_date - b.start_date);
+	}
+
 	_render() {
 		if (!this.shadowRoot || !this._config || !this._hass) {
 			return;
@@ -1204,7 +1256,7 @@ class EventSpotlightCard extends HTMLElement {
 			: EventSpotlightCard.FIELD_DEFAULTS.card_arrangement;
 		const darkMode = Boolean(this._hass?.themes?.darkMode);
 		const now = new Date();
-		const visibleEvents =
+		const filteredVisibleEvents =
 			this._filterFirstRuleMatches(
 				this._events
 					.map((event) =>
@@ -1214,8 +1266,9 @@ class EventSpotlightCard extends HTMLElement {
 						this._isEventVisible(event, now),
 					),
 			);
-		this._scheduleVisibilityRefresh(visibleEvents, now);
-		this._scheduleBlinkRefresh(visibleEvents, now);
+		const visibleEvents = this._eventsWithEmptyDays(filteredVisibleEvents, now);
+		this._scheduleVisibilityRefresh(filteredVisibleEvents, now);
+		this._scheduleBlinkRefresh(filteredVisibleEvents, now);
 
 		let contentBlock = "";
 
@@ -2596,11 +2649,11 @@ class EventSpotlightCardEditor extends HTMLElement {
 						<div class="rule-editor-group-title">${this._t("rules.group_rule")}</div>
 						<label>${this._t("rules.rule_name")}<input data-rule-key="rule_name" type="text" value="${ruleName}" placeholder="${this._t("rules.rule_name_placeholder")}"></label>
 						<div class="rule-grid">
-							<div class="field"><span>${this._t("rules.action")}</span><select data-rule-key="action"><option value="include"${action === "include" ? " selected" : ""}>${this._t("options.include")}</option><option value="exclude"${action === "exclude" ? " selected" : ""}>${this._t("options.exclude")}</option></select></div>
-							<div class="field"><span>${this._t("rules.field")}</span><select data-rule-key="field"><option value="summary"${field === "summary" ? " selected" : ""}>${this._t("options.summary")}</option><option value="description"${field === "description" ? " selected" : ""}>${this._t("options.description")}</option><option value="location"${field === "location" ? " selected" : ""}>${this._t("options.location")}</option><option value="calendar"${field === "calendar" ? " selected" : ""}>${this._t("options.calendar")}</option></select></div>
-							<div class="field"><span>${this._t("rules.match")}</span><select data-rule-key="operator"><option value="contains"${operator === "contains" ? " selected" : ""}>${this._t("options.contains")}</option><option value="equals"${operator === "equals" ? " selected" : ""}>${this._t("options.equals")}</option><option value="starts_with"${operator === "starts_with" ? " selected" : ""}>${this._t("options.starts_with")}</option><option value="ends_with"${operator === "ends_with" ? " selected" : ""}>${this._t("options.ends_with")}</option><option value="regex"${operator === "regex" ? " selected" : ""}>${this._t("options.regex")}</option></select></div>
+							<div class="field"><span>${this._t("rules.action")}</span><select data-rule-key="action"><option value="include"${action === "include" ? " selected" : ""}>${this._t("options.include")}</option>${field === "empty_day" ? "" : `<option value="exclude"${action === "exclude" ? " selected" : ""}>${this._t("options.exclude")}</option>`}</select></div>
+							<div class="field"><span>${this._t("rules.field")}</span><select data-rule-key="field"><option value="summary"${field === "summary" ? " selected" : ""}>${this._t("options.summary")}</option><option value="description"${field === "description" ? " selected" : ""}>${this._t("options.description")}</option><option value="location"${field === "location" ? " selected" : ""}>${this._t("options.location")}</option><option value="calendar"${field === "calendar" ? " selected" : ""}>${this._t("options.calendar")}</option><option value="empty_day"${field === "empty_day" ? " selected" : ""}>${this._t("options.empty_day")}</option></select></div>
+							<div class="field" style="${field === "empty_day" ? "display:none" : ""}"><span>${this._t("rules.match")}</span><select data-rule-key="operator"><option value="contains"${operator === "contains" ? " selected" : ""}>${this._t("options.contains")}</option><option value="equals"${operator === "equals" ? " selected" : ""}>${this._t("options.equals")}</option><option value="starts_with"${operator === "starts_with" ? " selected" : ""}>${this._t("options.starts_with")}</option><option value="ends_with"${operator === "ends_with" ? " selected" : ""}>${this._t("options.ends_with")}</option><option value="regex"${operator === "regex" ? " selected" : ""}>${this._t("options.regex")}</option></select></div>
 						</div>
-						<label>${this._t("rules.value")}<input data-rule-key="value" type="text" value="${value}" placeholder="${this._t("rules.value_placeholder")}"></label>
+						<label style="${field === "empty_day" ? "display:none" : ""}">${this._t("rules.value")}<input data-rule-key="value" type="text" value="${value}" placeholder="${this._t("rules.value_placeholder")}"></label>
 					</section>
 					<div class="rule-appearance${action === "exclude" ? " hidden" : ""}">
 						<section class="rule-editor-group">
@@ -2609,11 +2662,11 @@ class EventSpotlightCardEditor extends HTMLElement {
 							<ha-form class="rule-appearance-form" data-rule-form="${index}"></ha-form>
 							<div class="rule-color-options"><label class="compact-option"><ha-switch data-rule-option="show_icon_background_color" ${rule.show_icon_background_color !== false ? "checked" : ""}></ha-switch><span>${this._t("rules.icon_background")}</span></label><label class="compact-option"><ha-switch data-rule-option="show_background_color" ${rule.show_background_color !== false ? "checked" : ""}></ha-switch><span>${this._t("rules.card_background")}</span></label></div>
 						</section>
-						<section class="rule-editor-group">
+						<section class="rule-editor-group${field === "empty_day" ? " hidden" : ""}">
 							<div class="rule-editor-group-title">${this._t("rules.group_behavior")}</div>
 							<label class="compact-option"><ha-switch data-rule-option="show_first_match_only" ${rule.show_first_match_only === true ? "checked" : ""}></ha-switch><span>${this._t("rules.next_match_only")}</span></label>
 						</section>
-						<section class="rule-editor-group">
+						<section class="rule-editor-group${field === "empty_day" ? " hidden" : ""}">
 							<div class="rule-editor-group-title">${this._t("rules.group_highlight")}</div>
 							<div class="rule-highlight-grid">
 								<div class="rule-highlight-card">
@@ -3145,6 +3198,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 						${this._switchRow("show_title", this._t("appearance.show_header"))}
 						${this._switchRow("show_title_icon", this._t("appearance.show_header_icon"))}
 						${this._switchRow("show_card_background", this._t("appearance.show_card_background"))}
+						${this._switchRow("show_empty_days", this._t("appearance.show_empty_days"))}
 						${(this._config.layout || EventSpotlightCard.FIELD_DEFAULTS.layout) === "ticker" ? `
 							<div class="ticker-appearance-options">
 								${this._switchRow("ticker_mushroom_shape", this._t("appearance.mushroom_shape"))}
@@ -3708,12 +3762,20 @@ class EventSpotlightCardEditor extends HTMLElement {
 		this._updateRuleVisual(row, key, value);
 		const rules = (this._config.rules || []).map((rule, ruleIndex) => {
 			if (ruleIndex !== index) return rule;
+			if (key === "field" && value === "empty_day") {
+				return { ...rule, field: value, action: "include" };
+			}
 			return { ...rule, [key]: value };
 		});
 
 		this._config = { ...this._config, rules };
 		if (element.tagName === "SELECT") {
-			this._setRules(rules, false);
+			if (key === "field") {
+				this._pendingOpenRuleIndex = index;
+				this._setRules(rules, true);
+			} else {
+				this._setRules(rules, false);
+			}
 			return;
 		}
 
