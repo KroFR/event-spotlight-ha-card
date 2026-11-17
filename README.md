@@ -20,6 +20,7 @@ Instead of displaying every event from your calendars, Event Spotlight Card uses
 - Match title, description, location, or calendar source with text operators or regular expressions
 - Customize matching events with labels, icons, colors, backgrounds, and Glow, Bounce, Pulse, or Blink effects
 - Show only the next event for recurring matches
+- Optionally display days without matching events and customize their label, icon, color, and background
 - Six layouts: `Bubble`, `Chips`, `Mushroom`, `Pro`, `Square`, and `Ticker`
 - Eight card arrangements for Chips and Mushroom: `Left`, `Center`, `Right`, `Justified`, `Stretched`, `List`, `2 columns`, and `3 columns`
 - Optional relative date, time, description, location, and calendar source
@@ -123,6 +124,7 @@ The calendars are only event sources. Event rules decide which events are displa
 | `show_description` | boolean | no | `false` | Show event description when available |
 | `show_location` | boolean | no | `false` | Show event location when available |
 | `show_calendar_source` | boolean | no | `false` | Show the source calendar name |
+| `show_empty_days` | boolean | no | `false` | Display a placeholder for every day without a matching event in the configured search range |
 | `display_order` | list | no | `date_time`, `description`, `location`, `calendar` | Order of event details |
 
 ## 🎨 Layouts
@@ -221,7 +223,7 @@ rules:
 |---|---|---|
 | `rule_name` | Text | Optional name used only to identify the rule in the visual editor |
 | `action` | `include`, `exclude` | Defines whether a matching event is displayed or excluded |
-| `field` | `summary`, `description`, `location`, `calendar` | Event field used for matching |
+| `field` | `summary`, `description`, `location`, `calendar`, `empty_day` | Event field used for matching. Use `empty_day` to customize placeholders for days without matching events |
 | `operator` | `contains`, `equals`, `starts_with`, `ends_with`, `regex` | Matching method applied to the selected field |
 | `value` | Text or regex | Value or pattern to match |
 | `label` | Text | Optional label that replaces the event summary when displayed |
@@ -418,6 +420,32 @@ rules:
     value: Family
     icon: mdi:account-group
     color: green
+```
+
+### Days without events
+
+Enable `show_empty_days` to display one placeholder for every day without a matching event in the configured search range. Add an `empty_day` rule to customize its label, icon, color, and background. This rule always uses the `include` action and does not require an operator or search value.
+
+```yaml
+type: custom:event-spotlight-card
+calendars:
+  - entity: calendar.family
+days: 10
+show_empty_days: true
+rules:
+  - action: include
+    field: summary
+    operator: contains
+    value: Birthday
+    icon: mdi:cake-variant
+    color: pink
+  - action: include
+    field: empty_day
+    label: No event
+    icon: mdi:calendar-blank-outline
+    color: purple
+    show_icon_background_color: true
+    show_background_color: false
 ```
 
 ## 📄 License
