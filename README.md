@@ -40,13 +40,17 @@ The card retrieves upcoming calendar data using Home Assistant's `calendar.get_e
 
 ## 📦 Installation
 
-### HACS (recommended)
-
-Use this link to directly go to the repository in HACS:
+### Marketplace (HA 2026.11 and newer)
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=KroFR&repository=event-spotlight-ha-card)
 
 or
+
+1. Open the Marketplace → search for **Event Spotlight Card**
+2. Click it → install
+3. The Marketplace installs the plugin into www/community/event-spotlight-ha-card/ and adds it as a dashboard resource
+
+### HACS (HA before 2026.11)
 
 1. Install HACS if you don't have it already
 2. Open HACS in Home Assistant
