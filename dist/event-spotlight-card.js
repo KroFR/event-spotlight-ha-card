@@ -1,11 +1,12 @@
 /*
-* Event Spotlight Card for Home Assistant
-* Displays and customizes events from one or more Home Assistant calendars.
-*
-* License: MIT
-*/
+ * Event Spotlight Card for Home Assistant
+ * ===============================
+ * Displays and customizes events from one or more Home Assistant calendars.
+ *
+ * License: MIT
+ */
 
-const CARD_VERSION = "2026.11.1";
+const CARD_VERSION = "2026.11.2";
 
 /* ---------------------------------------------------------------------- */
 /*  Languages                                                             */
@@ -25,6 +26,9 @@ const TRANSLATIONS = {
 			in_days: "In {n} days",
 			all_day: "All day",
 			error: "Unable to load events",
+			error_timeout: "Calendar request timed out. Please try again.",
+			error_unauthorized: "Unable to access the selected calendar with this user account.",
+			error_connection: "Connection to Home Assistant was interrupted.",
 		},
 		editor: {
 			sections: {
@@ -135,6 +139,9 @@ const TRANSLATIONS = {
 			in_days: "Dans {n} jours",
 			all_day: "Toute la journée",
 			error: "Impossible de charger les événements",
+			error_timeout: "La requête du calendrier a expiré. Réessayez.",
+			error_unauthorized: "Impossible d’accéder au calendrier sélectionné avec ce compte utilisateur.",
+			error_connection: "La connexion à Home Assistant a été interrompue.",
 		},
 		editor: {
 			sections: {
@@ -920,6 +927,33 @@ class EventSpotlightCard extends HTMLElement {
 		);
 	}
 
+	_withTimeout(promise, timeoutMs = 15000) {
+		let timeoutId;
+		const timeout = new Promise((_, reject) => {
+			timeoutId = setTimeout(() => {
+				const error = new Error("Calendar request timed out");
+				error.code = "timeout";
+				reject(error);
+			}, timeoutMs);
+		});
+		return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
+	}
+
+	_eventLoadErrorKey(error) {
+		const code = String(error?.code || "").toLowerCase();
+		const message = String(error?.message || error || "").toLowerCase();
+		if (code === "timeout" || message.includes("timed out") || message.includes("timeout")) {
+			return "error_timeout";
+		}
+		if (code === "unauthorized" || message.includes("unauthorized") || message.includes("permission")) {
+			return "error_unauthorized";
+		}
+		if (message.includes("connection") || message.includes("socket") || message.includes("disconnected")) {
+			return "error_connection";
+		}
+		return "error";
+	}
+
 	_requestEventsLoad() {
 		if (!this._hass || !this._config) {
 			return;
@@ -977,24 +1011,22 @@ class EventSpotlightCard extends HTMLElement {
 			start.getTime() + requestedDays * 86400000,
 		);
 		try {
-			const result = await this._hass.connection.sendMessagePromise({
-				type: "execute_script",
-				sequence: [
-					{
-						action: "calendar.get_events",
-						target: { entity_id: requestedCalendars.map((calendar) => calendar.entity) },
-						data: {
-							start_date_time: start.toISOString(),
-							end_date_time: end.toISOString(),
-						},
-						response_variable: "calendar_events",
+			const result = await this._withTimeout(
+				this._hass.connection.sendMessagePromise({
+					type: "call_service",
+					domain: "calendar",
+					service: "get_events",
+					target: {
+						entity_id: requestedCalendars.map((calendar) => calendar.entity),
 					},
-					{
-						stop: "done",
-						response_variable: "calendar_events",
+					service_data: {
+						start_date_time: start.toISOString(),
+						end_date_time: end.toISOString(),
 					},
-				],
-			});
+					return_response: true,
+				}),
+				15000,
+			);
 			const response = result?.response || result || {};
 			const responses = requestedCalendars.map((calendar) => {
 				const events = response?.[calendar.entity]?.events || [];
@@ -1011,11 +1043,19 @@ class EventSpotlightCard extends HTMLElement {
 			);
 			this._loadKey = requestedLoadKey;
 		} catch (error) {
+			const errorKey = this._eventLoadErrorKey(error);
 			console.error(
-				"Event Spotlight Card: failed to load spotlight events",
-				error?.message || "Unknown error",
+				"Event Spotlight Card: failed to load calendar events",
+				{
+					code: error?.code || "unknown",
+					message: error?.message || "Unknown error",
+					calendars: requestedCalendars.map((calendar) => calendar.entity),
+				},
 			);
-			this._error = error?.message || "error";
+			this._error = errorKey;
+			// Mark this request as handled. A failed request must not immediately
+			// restart in a microtask loop; the scheduled refresh will retry later.
+			this._loadKey = requestedLoadKey;
 		} finally {
 			this._loading = false;
 			this._render();
@@ -1266,23 +1306,25 @@ class EventSpotlightCard extends HTMLElement {
 						this._isEventVisible(event, now),
 					),
 			);
-		const visibleEvents = this._eventsWithEmptyDays(filteredVisibleEvents, now);
+		const visibleEvents = this._error
+			? filteredVisibleEvents
+			: this._eventsWithEmptyDays(filteredVisibleEvents, now);
 		this._scheduleVisibilityRefresh(filteredVisibleEvents, now);
 		this._scheduleBlinkRefresh(filteredVisibleEvents, now);
 
 		let contentBlock = "";
 
-		if (this._loading && !visibleEvents.length) {
+		if (this._error) {
+			contentBlock = `
+				<div class="state error">
+					<ha-icon icon="mdi:alert-circle-outline"></ha-icon>
+					${this._t(lang, this._error || "error")}
+				</div>`;
+		} else if (this._loading && !visibleEvents.length) {
 			contentBlock = `
 				<div class="state">
 					<ha-circular-progress active></ha-circular-progress>
 					${this._t(lang, "loading")}
-				</div>`;
-		} else if (this._error) {
-			contentBlock = `
-				<div class="state error">
-					<ha-icon icon="mdi:alert-circle-outline"></ha-icon>
-					${this._t(lang, "error")}
 				</div>`;
 		} else if (!visibleEvents.length) {
 			contentBlock = `
