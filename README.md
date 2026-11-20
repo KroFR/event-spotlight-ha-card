@@ -88,7 +88,7 @@ rules:
     color: pink
 ```
 
-Without a matching Include rule, the card displays `No events to display`.
+Without a matching Include rule, the card displays `No events to display` by default. Set `show_empty_state: false` to hide this message and its icon.
 
 ## ⚙️ Configuration
 
@@ -129,6 +129,7 @@ The calendars are only event sources. Event rules decide which events are displa
 | `show_location` | boolean | no | `false` | Show event location when available |
 | `show_calendar_source` | boolean | no | `false` | Show the source calendar name |
 | `show_empty_days` | boolean | no | `false` | Display a placeholder for every day without a matching event in the configured search range |
+| `show_empty_state` | boolean | no | `true` | Show the default no-events message and icon when no matching events are found |
 | `display_order` | list | no | `date_time`, `description`, `location`, `calendar` | Order of event details |
 
 ## 🎨 Layouts
