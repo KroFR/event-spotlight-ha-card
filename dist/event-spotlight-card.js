@@ -6,7 +6,7 @@
  * License: MIT
  */
 
-const CARD_VERSION = "2026.11.2";
+const CARD_VERSION = "2026.11.3";
 
 /* ---------------------------------------------------------------------- */
 /*  Languages                                                             */
@@ -62,6 +62,7 @@ const TRANSLATIONS = {
 				show_location: "Show location",
 				show_calendar: "Show calendar name",
 				show_empty_days: "Show days without events",
+				show_empty_state: "Show no-events message",
 				mushroom_shape: "Use Mushroom style",
 				invert_light_colors: "Invert colors in light theme",
 			},
@@ -175,6 +176,7 @@ const TRANSLATIONS = {
 				show_location: "Afficher le lieu",
 				show_calendar: "Afficher le nom du calendrier",
 				show_empty_days: "Afficher les jours sans événement",
+				show_empty_state: "Afficher le message Aucun événement",
 				mushroom_shape: "Utiliser le style Mushroom",
 				invert_light_colors: "Inverser les couleurs en thème clair",
 			},
@@ -277,6 +279,7 @@ class EventSpotlightCard extends HTMLElement {
 		show_description: false,
 		show_location: false,
 		show_empty_days: false,
+		show_empty_state: true,
 		display_order: ["date_time", "description", "location", "calendar"],
 	};
 
@@ -1327,11 +1330,16 @@ class EventSpotlightCard extends HTMLElement {
 					${this._t(lang, "loading")}
 				</div>`;
 		} else if (!visibleEvents.length) {
-			contentBlock = `
-				<div class="state">
-					<ha-icon icon="mdi:calendar-blank-outline"></ha-icon>
-					${this._t(lang, "empty")}
-				</div>`;
+			const showEmptyState =
+				this._config.show_empty_state ??
+				EventSpotlightCard.FIELD_DEFAULTS.show_empty_state;
+			contentBlock = showEmptyState
+				? `
+					<div class="state">
+						<ha-icon icon="mdi:calendar-blank-outline"></ha-icon>
+						${this._t(lang, "empty")}
+					</div>`
+				: "";
 		} else {
 			let eventBlocks = "";
 			if (layout === "ticker") {
@@ -3240,6 +3248,7 @@ class EventSpotlightCardEditor extends HTMLElement {
 						${this._switchRow("show_title", this._t("appearance.show_header"))}
 						${this._switchRow("show_title_icon", this._t("appearance.show_header_icon"))}
 						${this._switchRow("show_card_background", this._t("appearance.show_card_background"))}
+						${this._switchRow("show_empty_state", this._t("appearance.show_empty_state"))}
 						${this._switchRow("show_empty_days", this._t("appearance.show_empty_days"))}
 						${(this._config.layout || EventSpotlightCard.FIELD_DEFAULTS.layout) === "ticker" ? `
 							<div class="ticker-appearance-options">
