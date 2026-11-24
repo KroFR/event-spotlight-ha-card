@@ -1637,12 +1637,13 @@ class EventSpotlightCard extends HTMLElement {
 			:host {
 				display: block;
 				width: 100%;
+				overflow: visible;
 			}
 			ha-card {
 				box-sizing: border-box;
 				width: 100%;
 				padding: 0;
-				overflow: hidden;
+				overflow: visible;
 			}
 			ha-card.no-card-background {
 				background: transparent;
@@ -1687,6 +1688,13 @@ class EventSpotlightCard extends HTMLElement {
 				font-size: 1.2em;
 				font-weight: 600;
 				color: var(--primary-text-color);
+			}
+
+			/* ------------------------------------------------------------------ */
+			/* Shared events container                                            */
+			/* ------------------------------------------------------------------ */
+			.events {
+				overflow: visible;
 			}
 
 			/* ------------------------------------------------------------------ */
@@ -2444,7 +2452,7 @@ class EventSpotlightCard extends HTMLElement {
 			}
 
 			/* ------------------------------------------------------------------ */
-			/* Empty, loading, error, and responsive states                        */
+			/* Empty, loading, error, and responsive states                       */
 			/* ------------------------------------------------------------------ */
 			.state {
 				display: flex;
