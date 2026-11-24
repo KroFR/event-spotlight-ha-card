@@ -6,7 +6,7 @@
  * License: MIT
  */
 
-const CARD_VERSION = "2026.11.3";
+const CARD_VERSION = "2026.11.4";
 
 /* ---------------------------------------------------------------------- */
 /*  Languages                                                             */
@@ -25,6 +25,7 @@ const TRANSLATIONS = {
 			tomorrow: "Tomorrow",
 			in_days: "In {n} days",
 			all_day: "All day",
+			years: "{n} yo",
 			error: "Unable to load events",
 			error_timeout: "Calendar request timed out. Please try again.",
 			error_unauthorized: "Unable to access the selected calendar with this user account.",
@@ -139,6 +140,7 @@ const TRANSLATIONS = {
 			tomorrow: "Demain",
 			in_days: "Dans {n} jours",
 			all_day: "Toute la journée",
+			years: "{n} ans",
 			error: "Impossible de charger les événements",
 			error_timeout: "La requête du calendrier a expiré. Réessayez.",
 			error_unauthorized: "Impossible d’accéder au calendrier sélectionné avec ce compte utilisateur.",
@@ -651,18 +653,57 @@ class EventSpotlightCard extends HTMLElement {
 		};
 	}
 
+	_anniversaryInfo(event) {
+		const description = String(event?.description || "");
+		const eventYear = event?.start_date?.getFullYear();
+		if (!description || !Number.isInteger(eventYear)) return null;
+
+		const birthdayMatch = description.match(/\+\+(\d{4})\+\+/);
+		const memorialMatch = description.match(/--(\d{4})--/);
+		const selectedMatch = memorialMatch || birthdayMatch;
+		if (!selectedMatch) return null;
+
+		const sourceYear = Number(selectedMatch[1]);
+		const years = eventYear - sourceYear;
+		if (!Number.isInteger(years) || years < 0 || years > 999) return null;
+
+		const filteredDescription = description
+			.replace(/\+\+\d{4}\+\+/, "")
+			.replace(/--\d{4}--/, "")
+			.replace(/^[\s·,;:|\-–—]+|[\s·,;:|\-–—]+$/g, "")
+			.replace(/\s{2,}/g, " ");
+
+		return {
+			type: memorialMatch ? "memorial" : "birthday",
+			sourceYear,
+			years,
+			filteredDescription,
+		};
+	}
+
+	_anniversaryMeta(event) {
+		if (!Number.isInteger(event?.anniversary_years)) return "";
+		const value = this._escape(this._t(this._lang(), "years", event.anniversary_years));
+		return event.anniversary_type === "memorial"
+			? `<span class="anniversary-meta anniversary-memorial"><ha-icon icon="mdi:candle"></ha-icon>${value}</span>`
+			: `<span class="anniversary-meta anniversary-age">${value}</span>`;
+	}
+
 	_applyRuleAppearance(event) {
 		const rule =
 			event.primary_rule_index >= 0
 				? this._config.rules?.[event.primary_rule_index]
 				: null;
+		const anniversary = event.primary_rule_index >= 0 ? this._anniversaryInfo(event) : null;
+		const baseLabel = String(rule?.label || "").trim() || event.summary || event.calendar_name;
 
 		return {
 			...event,
-			label:
-				String(rule?.label || "").trim() ||
-				event.summary ||
-				event.calendar_name,
+			description: anniversary ? anniversary.filteredDescription : event.description,
+			anniversary_type: anniversary?.type ?? null,
+			anniversary_year: anniversary?.sourceYear ?? null,
+			anniversary_years: anniversary?.years ?? null,
+			label: baseLabel,
 			icon: this._safeIcon(rule?.icon || event.default_icon),
 			color: this._resolveUiColor(rule?.color),
 			show_icon_background_color:
@@ -1382,7 +1423,7 @@ class EventSpotlightCard extends HTMLElement {
 						.map((value) => `<span class="ticker-detail">${this._escape(value)}</span>`)
 						.join("");
 					const dateMeta = dateTime.length
-						? `<span class="ticker-meta">${this._escape(dateTime.join(" · "))}</span>`
+						? `<span class="ticker-meta">${this._escape(dateTime.join(" · "))}${this._anniversaryMeta(event)}</span>`
 						: "";
 					return `<div class="ticker-event${this._highlightClasses(event) ? ` ${this._highlightClasses(event)}` : ""}"><span class="ticker-dot"></span><span class="ticker-title">${this._escape(event.label)}</span>${detailItems ? `<span class="ticker-details">${detailItems}</span>` : ""}${dateMeta}</div>`;
 				}).join("");
@@ -1436,7 +1477,7 @@ class EventSpotlightCard extends HTMLElement {
 							.map((key) => extraBlocks[key] || "")
 							.join("");
 						return `<div class="bubble-event-line${this._highlightClasses(event) ? ` ${this._highlightClasses(event)}` : ""}">
-							<div class="bubble-main"><span class="bubble-dot"></span>${bubbleTime ? `<span class="bubble-time">${this._escape(bubbleTime)}</span>` : ""}<span class="event-title bubble-title">${this._escape(event.label)}${relativeDate ? ` <span class="bubble-relative">(${this._escape(relativeDate)})</span>` : ""}</span></div>
+							<div class="bubble-main"><span class="bubble-dot"></span>${bubbleTime ? `<span class="bubble-time">${this._escape(bubbleTime)}</span>` : ""}<span class="event-title bubble-title">${this._escape(event.label)}${relativeDate ? ` <span class="bubble-relative">(${this._escape(relativeDate)})${this._anniversaryMeta(event)}</span>` : this._anniversaryMeta(event)}</span></div>
 							${extras ? `<div class="bubble-extra">${extras}</div>` : ""}
 						</div>`;
 					}).join("");
@@ -1462,10 +1503,11 @@ class EventSpotlightCard extends HTMLElement {
 						const showDescription = this._config.show_description ?? EventSpotlightCard.FIELD_DEFAULTS.show_description;
 						const showLocation = this._config.show_location ?? EventSpotlightCard.FIELD_DEFAULTS.show_location;
 						const showCalendarSource = this._config.show_calendar_source ?? EventSpotlightCard.FIELD_DEFAULTS.show_calendar_source;
-						let dateTime = showRelativeDate ? this._relativeDateLabel(event, lang) : "";
+						const dateLabel = showRelativeDate ? this._relativeDateLabel(event, lang) : "";
+						let timeLabel = "";
 						if (showTime) {
 							const isAllDay = /^\d{4}-\d{2}-\d{2}$/.test(event.start || "");
-							let timeLabel = this._t(lang, "all_day");
+							timeLabel = this._t(lang, "all_day");
 							if (!isAllDay) {
 								const startTime = new Intl.DateTimeFormat(lang, { hour: "2-digit", minute: "2-digit" }).format(event.start_date);
 								const endDate = event.end ? this._date(event.end) : null;
@@ -1474,11 +1516,11 @@ class EventSpotlightCard extends HTMLElement {
 									: "";
 								timeLabel = endTime ? `${startTime} – ${endTime}` : startTime;
 							}
-							dateTime += `${dateTime ? " · " : ""}${timeLabel}`;
 						}
-
+						const anniversaryMeta = this._anniversaryMeta(event);
+						const dateTime = `${dateLabel ? this._escape(dateLabel) : ""}${anniversaryMeta}${timeLabel ? `<span class="pro-time-separator"> · </span>${this._escape(timeLabel)}` : ""}`;
 						const details = {
-							date_time: dateTime ? `<div class="pro-detail"><ha-icon icon="mdi:clock-outline"></ha-icon><span>${this._escape(dateTime)}</span></div>` : "",
+							date_time: dateTime ? `<div class="pro-detail"><ha-icon icon="mdi:clock-outline"></ha-icon><span>${dateTime}</span></div>` : "",
 							description: showDescription && event.description ? `<div class="pro-detail"><ha-icon icon="mdi:text-box-outline"></ha-icon><span>${this._escape(event.description)}</span></div>` : "",
 							location: showLocation && event.location ? `<div class="pro-detail"><ha-icon icon="mdi:map-marker-outline"></ha-icon><span>${this._escape(event.location)}</span></div>` : "",
 							calendar: showCalendarSource ? `<div class="pro-detail"><ha-icon icon="mdi:calendar-outline"></ha-icon><span>${this._escape(event.calendar_name)}</span></div>` : "",
@@ -1507,8 +1549,12 @@ class EventSpotlightCard extends HTMLElement {
 			} else {
 				eventBlocks = visibleEvents
 				.map((event) => {
+					const anniversaryMeta = this._anniversaryMeta(event);
+					const anniversaryLine = layout === "mushroom" && anniversaryMeta
+						? `<div class="event-anniversary">${anniversaryMeta}</div>`
+						: "";
 					const detailBlocks = {
-						date_time: `<div class="event-date">${this._escape(this._dateLabel(event, lang))}</div>`,
+						date_time: `<div class="event-date">${this._escape(this._dateLabel(event, lang))}${layout === "mushroom" ? "" : anniversaryMeta}</div>`,
 						description: (this._config.show_description ?? EventSpotlightCard.FIELD_DEFAULTS.show_description) && event.description
 							? `<div class="event-detail">${this._escape(event.description)}</div>` : "",
 						location: (this._config.show_location ?? EventSpotlightCard.FIELD_DEFAULTS.show_location) && event.location
@@ -1516,7 +1562,13 @@ class EventSpotlightCard extends HTMLElement {
 						calendar: (this._config.show_calendar_source ?? EventSpotlightCard.FIELD_DEFAULTS.show_calendar_source)
 							? `<div class="event-detail">${this._escape(event.calendar_name)}</div>` : "",
 					};
-					const orderedDetails = this._displayOrder().map((key) => detailBlocks[key] || "").join("");
+					let orderedDetails = this._displayOrder().map((key) => detailBlocks[key] || "").join("");
+					if (anniversaryLine) {
+						const dateBlock = detailBlocks.date_time;
+						orderedDetails = dateBlock && orderedDetails.includes(dateBlock)
+							? orderedDetails.replace(dateBlock, `${dateBlock}${anniversaryLine}`)
+							: `${anniversaryLine}${orderedDetails}`;
+					}
 
 					const eventClasses = [
 						"event",
@@ -1813,7 +1865,7 @@ class EventSpotlightCard extends HTMLElement {
 				max-width: 100%;
 				min-width: 0;
 				min-height: 54px;
-				height: auto;
+				height: 54px;
 				padding: 6px 8px;
 				border: 1px solid var(--divider-color);
 				border-radius: var(--ha-card-border-radius, 12px);
@@ -2283,6 +2335,21 @@ class EventSpotlightCard extends HTMLElement {
 				white-space: nowrap;
 				text-overflow: ellipsis;
 			}
+
+			/* Shared anniversary and memorial behavior */
+			.anniversary-meta { display:inline-flex; align-items:center; gap:3px; margin-left:4px; color:inherit; font-size:inherit; font-weight:inherit; line-height:inherit; white-space:nowrap; }
+			.anniversary-meta::before { content:"·"; margin-right:1px; color:inherit; font-weight:inherit; }
+			.event-anniversary { color:var(--secondary-text-color); font-size:10px; line-height:1; font-weight:500; min-height:0; margin:0; }
+			.mushroom .event-text:has(.event-anniversary) { gap:1px; line-height:1; }
+			.mushroom .event-text:has(.event-anniversary) .event-title { line-height:1.05; }
+			.mushroom .event-text:has(.event-anniversary) .event-date { line-height:1; }
+			.mushroom .event-anniversary { display:block; padding:0; margin:0; }
+			.mushroom .event-anniversary .anniversary-meta { display:inline-flex; margin:0; padding:0; gap:2px; }
+			.mushroom .event-anniversary .anniversary-meta::before { content:none; display:none; margin:0; }
+			.pro-time-separator { color:var(--secondary-text-color); }
+			.anniversary-memorial { display:inline-flex; align-items:center; gap:2px; }
+			.anniversary-memorial ha-icon { --mdc-icon-size:1em; color:currentColor; }
+			.square .event-date .anniversary-meta { margin-left:4px; }
 
 			/* ------------------------------------------------------------------ */
 			/* Rule highlight animation                                           */
