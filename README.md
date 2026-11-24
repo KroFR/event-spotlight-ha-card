@@ -20,6 +20,7 @@ Instead of displaying every event from your calendars, Event Spotlight Card uses
 - Match title, description, location, or calendar source with text operators or regular expressions
 - Customize matching events with labels, icons, colors, backgrounds, and Glow, Bounce, Pulse, or Blink effects
 - Show only the next event for recurring matches
+- Automatically calculate birthday, anniversary, and memorial years from simple calendar description markers
 - Optionally display days without matching events and customize their label, icon, color, and background
 - Six layouts: `Bubble`, `Chips`, `Mushroom`, `Pro`, `Square`, and `Ticker`
 - Eight card arrangements for Chips and Mushroom: `Left`, `Center`, `Right`, `Justified`, `Stretched`, `List`, `2 columns`, and `3 columns`
@@ -310,6 +311,30 @@ Card arrangements are available for the `Chips` and `Mushroom` layouts. Other la
 | `list` | Display one full-width card per row |
 | `2-columns` | Display cards in two equal-width columns and truncate overflowing text |
 | `3-columns` | Display cards in three equal-width columns and truncate overflowing text |
+
+## 🎂 Birthdays and 🕯 memorials
+
+Event Spotlight Card can automatically calculate and display the number of years for birthdays, anniversaries, and memorial dates.
+
+Add a year marker to the calendar event description:
+
+- `++YYYY++` - birthday or anniversary year
+- `--YYYY--` - memorial year
+
+The card calculates the number of years between the marker year and the year of the calendar event. The marker is automatically removed from the displayed description.
+
+| Calendar marker |	Meaning |	Example |
+| ------ | -------- | ------- |
+| ++YYYY++ |	Birthday or anniversary year |	++1974++ |
+| --YYYY-- |	Memorial year |	--2020-- |
+
+| Light Theme | Dark Theme |
+|---|---|
+| <img width="504" height="154" alt="image" src="https://github.com/user-attachments/assets/46a01eea-baa8-4ba5-9ed6-d2f2a7d39e18" /> | <img width="505" height="154" alt="image" src="https://github.com/user-attachments/assets/4b9dd473-e4df-4f43-8d8f-b9330afa4874" /> |
+
+The candle icon distinguishes a memorial from a birthday or anniversary.
+
+If both markers are present in the same event description, the memorial marker takes priority.
 
 ## 🔒 Runtime safeguards
 
